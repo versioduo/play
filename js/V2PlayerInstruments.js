@@ -215,6 +215,7 @@ class V2PlayerInstruments extends V2WebModule {
 
         field.addElement('span', (e) => {
           e.classList.add('select');
+          e.classList.add('is-rounded');
 
           V2Web.addElement(e, 'select', (select) => {
             t.manual.channel = select;

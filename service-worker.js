@@ -1,5 +1,5 @@
 const name = 'play';
-const version = 157;
+const version = 160;
 const files = [
   './',
   'css/bulma-addons.css',

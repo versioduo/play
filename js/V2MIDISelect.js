@@ -12,6 +12,7 @@ class V2MIDISelect {
     V2Web.addElement(canvas, 'div', (e) => {
       this.#element = e;
       e.classList.add('select');
+      e.classList.add('is-rounded');
 
       V2Web.addElement(e, 'select', (select) => {
         this.#select = select;
