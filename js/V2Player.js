@@ -146,7 +146,7 @@ class V2Player {
         this.#pause();
 
         if (playing)
-          this.#library.getNotify().warn('The playback was paused because the application moved into the background.');
+          this.#library.getNotify().warn('The playback was paused because the application moved to the background.');
       };
     };
 
