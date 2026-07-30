@@ -1,7 +1,5 @@
-// © Kay Sievers <kay@versioduo.com>, 2019-2022
-// SPDX-License-Identifier: Apache-2.0
-
 class V2PlayerDevices extends V2WebModule {
+  #element = null;
   #player = null;
   #midi = null;
 
@@ -18,7 +16,12 @@ class V2PlayerDevices extends V2WebModule {
   #programs = null;
 
   constructor(player, midi) {
-    super('devices', 'Devices', 'Automatically match instruments to devices');
+    super('devices', '--right-to-bracket', 'Devices', 'Automatically Match Instruments to Devices');
+
+    V2Web.addElement(this.canvas, 'div', (e) => {
+      this.#element = e;
+      e.id = this.id + '.element';
+    });
 
     this.#player = player;
     this.#midi = midi;
@@ -34,26 +37,29 @@ class V2PlayerDevices extends V2WebModule {
       this.#list.firstChild.remove();
 
     for (const [program, devices] of this.#programs.entries()) {
-      V2Web.addElement(this.#list, 'div', (list) => {
-        list.classList.add('mb-5');
+      V2Web.addElement(this.#list, 'li', (li) => {
+        li.id = this.id + '.programs.' + program;
 
-        V2Web.addElement(list, 'div', (e) => {
-          e.classList.add('mb-1');
-          e.classList.add('is-size-4');
+        V2Web.addElement(li, 'hr');
+
+        V2Web.addElement(li, 'p', (e) => {
+          e.classList.add('title');
           e.textContent = V2MIDI.GM.Program.Name[program];
         });
 
         for (const [index, device] of devices.entries()) {
-          new V2WebField(list, (field) => {
-            field.addButton((e) => {
-              e.classList.add('has-background-light');
-              e.classList.add('inactive');
-              e.tabIndex = -1;
+          new V2WebMenu(li, (menu) => {
+            menu.addElement('span', (e) => {
               e.textContent = device;
             });
 
-            field.addButton((e) => {
-              e.textContent = '✕';
+            menu.addElement('button', (e) => {
+              e.classList.add('field');
+              e.classList.add('warn');
+
+              V2Web.addElement(e, 'i', (i) => {
+                i.classList.add('icon', '--xmark', '--nospace');
+              });
               e.addEventListener('click', () => {
                 devices.splice(index, 1);
 
@@ -73,8 +79,8 @@ class V2PlayerDevices extends V2WebModule {
   }
 
   show() {
-    V2Web.addButtons(this.canvas, (buttons) => {
-      V2Web.addButton(buttons, (e) => {
+    new V2WebMenu(this.#element, (menu) => {
+      menu.addElement('button', (e) => {
         this.#buttons.reset = e;
         e.textContent = 'Reset';
         e.disabled = true;
@@ -86,9 +92,9 @@ class V2PlayerDevices extends V2WebModule {
         });
       });
 
-      V2Web.addButton(buttons, (e) => {
+      menu.addElement('button', (e) => {
         this.#buttons.add = e;
-        e.classList.add('is-link');
+        e.classList.add('primary');
         e.textContent = 'Add';
         e.disabled = true;
         e.addEventListener('click', () => {
@@ -118,13 +124,16 @@ class V2PlayerDevices extends V2WebModule {
       });
     });
 
-    V2Web.addElement(this.canvas, 'div', (e) => {
-      this.#list = e;
+    new V2WebMenu(this.#element, (menu) => {
+      menu.addElement('span', (e) => {
+        e.textContent = 'Device';
+      });
+
+      menu.addItem((li) => {
+        this.#add.select = new V2MIDISelect(li);
+      });
     });
 
-    this.#add.select = new V2MIDISelect(this.canvas, (e) => {
-      e.classList.add('my-4');
-    });
     this.#midi.addNotifier('state', (event) => {
       this.#add.select.update(this.#midi.getDevices('output'));
     });
@@ -150,26 +159,22 @@ class V2PlayerDevices extends V2WebModule {
         range.value = number;
       };
 
-      new V2WebField(this.canvas, (field) => {
-        field.addButton((e) => {
-          e.classList.add('width-label');
-          e.classList.add('has-background-grey-lighter');
-          e.classList.add('inactive');
-          e.tabIndex = -1;
+      new V2WebMenu(this.#element, (menu) => {
+        menu.element.classList.add('full');
+
+        menu.addElement('span', (e) => {
+          e.classList.add('label');
           e.textContent = 'Program';
         });
 
-        field.addButton((e) => {
+        menu.addElement('button', (e) => {
+          e.classList.add('grow');
           text = e;
-          e.classList.add('width-text-wide');
-          e.classList.add('has-background-light');
-          e.classList.add('inactive');
-          e.tabIndex = -1;
         });
 
-        field.addInput('number', (e) => {
+        menu.addElement('input', (e) => {
           this.#add.program = e;
-          e.classList.add('width-number');
+          e.type = 'number';
           e.min = 1;
           e.max = 128;
           e.addEventListener('input', () => {
@@ -178,9 +183,8 @@ class V2PlayerDevices extends V2WebModule {
         });
       });
 
-      V2Web.addElement(this.canvas, 'input', (e) => {
+      V2Web.addElement(this.#element, 'input', (e) => {
         range = e;
-        e.classList.add('range');
         e.type = 'range';
         e.min = 1;
         e.max = 128;
@@ -191,6 +195,11 @@ class V2PlayerDevices extends V2WebModule {
 
       update(V2MIDI.GM.Program.acousticGrandPiano + 1);
     }
+
+    V2Web.addElement(this.#element, 'ul', (e) => {
+      e.id = this.id + '.programs';
+      this.#list = e;
+    });
 
     V2PlayerDatabase.getDevices('programs', (devices) => {
       this.#programs = devices;
@@ -203,7 +212,8 @@ class V2PlayerDevices extends V2WebModule {
   }
 
   reset() {
-    super.reset();
     super.detach();
+    while (this.#element.firstChild)
+      this.#element.firstChild.remove();
   }
 }

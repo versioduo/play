@@ -8,8 +8,6 @@ class V2Web {
   static setup() {
     // Always scroll to the top at page reload.
     history.scrollRestoration = 'manual';
-
-    this.setupMenu();
   }
 
   static registerServiceWorker(worker, handler) {
@@ -32,92 +30,57 @@ class V2Web {
   }
 
   static notifyUpdate(text, handler) {
-    V2Web.addElementAfter(document.querySelector('.navbar'), 'section', (section) => {
-      section.classList.add('has-background-info-light');
-      section.classList.add('mb-0');
-      section.classList.add('py-2');
-
-      V2Web.addElement(section, 'div', (line) => {
-        line.classList.add('container');
-        line.classList.add('is-flex');
-        line.classList.add('is-justify-content-space-between');
-        line.classList.add('is-align-items-center');
-
-        V2Web.addElement(line, 'div', (e) => {
-          e.textContent = text;
+    V2Web.addElementAdjacent(document.querySelector('main'), 'afterbegin', 'section', (section) => {
+      V2Web.addElement(section, 'hgroup', (hg) => {
+        V2Web.addElement(hg, 'h2', (e) => {
+          e.textContent = 'Update';
         });
 
-        V2Web.addButtons(line, (right) => {
-          right.classList.add('is-flex');
-          right.classList.add('is-justify-content-end');
+        V2Web.addElement(hg, 'p', (e) => {
+          e.textContent = text;
+        });
+      });
 
-          V2Web.addButton(right, (e) => {
-            e.textContent = 'Close';
-            e.addEventListener('click', () => {
-              section.remove();
-            });
+      new V2WebMenu(section, (menu) => {
+        menu.addElement('button', (e) => {
+          e.textContent = 'Close';
+          e.addEventListener('click', () => {
+            section.remove();
           });
+        });
 
-          V2Web.addButton(right, (e) => {
-            e.classList.add('is-link');
-            e.textContent = 'Update';
-            e.addEventListener('click', () => {
-              handler();
-            });
+        menu.addElement('button', (e) => {
+          e.classList.add('primary');
+          e.textContent = 'Reload';
+          e.addEventListener('click', () => {
+            handler();
           });
         });
       });
     });
   }
 
-  static setupMenu() {
-    const burger = document.querySelector('.navbar-burger');
-    const menu = document.querySelector('.navbar-menu');
+  static addNavigationSection(id, icon, title, target) {
+    this.addElement(document.querySelector('nav details ul'), 'li', (li) => {
+      li.id = 'nav-' + id;
 
-    // Hide the burger when the menu is (still) empty.
-    if (!document.querySelector('.navbar-start').firstChild)
-      burger.style.visibility = 'hidden';
+      this.addElement(li, 'a', (e) => {
+        e.href = target;
 
-    // Toggle menu with burger.
-    burger.addEventListener('click', () => {
-      burger.classList.toggle('is-active');
-      menu.classList.toggle('is-active');
-    });
+        if (icon)
+          V2Web.addElement(e, 'i', (i) => {
+            i.classList.add('icon', icon);
+          });
 
-    window.addEventListener('click', (e) => {
-      // Do not act on the burger toggle event.
-      if (e.target === burger)
-        return;
-
-      if (!burger.classList.contains('is-active'))
-        return;
-
-      burger.classList.remove('is-active');
-      menu.classList.remove('is-active');
+        e.append(title);
+      });
     });
   }
 
-  static addNavigation(id, title, target) {
-    const navbar = document.querySelector('.navbar-start');
-
-    if (!navbar.firstChild)
-      document.querySelector('.navbar-burger').style.visibility = '';
-
-    this.addElement(navbar, 'a', (e) => {
-      e.id = 'navigation-' + id;
-      e.classList.add('navbar-item');
-      e.href = target;
-      e.textContent = title;
-    });
-  }
-
-  static removeNavigation(id) {
-    const e = document.querySelector('#navigation-' + id);
+  static removeNavigationSection(id) {
+    const e = document.querySelector('#nav-' + id);
     if (e)
       e.remove();
-
-    if (!document.querySelector('.navbar-start').firstChild)
-      document.querySelector('.navbar-burger').style.visibility = 'hidden';
   }
 
   static addElement(element, type, handler) {
@@ -126,14 +89,16 @@ class V2Web {
       handler(e);
 
     element.appendChild(e);
+    return e;
   }
 
-  static addElementAfter(element, type, handler) {
+  static addElementAdjacent(element, position, type, handler) {
     const e = document.createElement(type);
     if (handler)
       handler(e);
 
-    element.insertAdjacentElement('afterend', e);
+    element.insertAdjacentElement(position, e);
+    return e;
   }
 
   static addFileDrop(element, area, attributes, handler) {
@@ -180,41 +145,18 @@ class V2Web {
     });
   }
 
-  static addButtons(element, handler) {
-    const e = document.createElement('div');
-    e.classList.add('buttons');
-    e.classList.add('has-addons');
-    if (handler)
-      handler(e);
-
-    element.appendChild(e);
-  }
-
-  static addButton(element, handler) {
-    const e = document.createElement('button');
-    e.classList.add('button');
-    e.classList.add('is-rounded');
-    if (handler)
-      handler(e);
-
-    element.appendChild(e);
-  }
-
-  // Split newline character into paragraphs, substitute # heading level marker.
-  static addMarkup(element, headingBase, text) {
+  // Read # heading marker, split newline character into paragraphs.
+  static addMarkup(element, text) {
     for (const line of text.split("\n")) {
       const match = line.match(/^#+/);
       if (match) {
-        const heading = match[0].length;
-        V2Web.addElement(element, 'h' + (headingBase + heading), (e) => {
-          e.classList.add('subtitle');
-          e.classList.add('mb-2');
-          e.textContent = line.slice(heading).trim();
+        V2Web.addElement(element, 'p', (e) => {
+          e.classList.add('title');
+          e.textContent = line.slice(match[0].length).trim();
         });
 
       } else
         V2Web.addElement(element, 'p', (e) => {
-          e.classList.add('content');
           e.textContent = line;
         });
     }
@@ -230,19 +172,7 @@ class V2WebNotify {
     V2Web.addElement(canvas, 'div', (notify) => {
       this.#element = notify;
       this.#element.style.display = 'none';
-      this.#element.classList.add('notification');
-      this.#element.classList.add('is-light');
-
-      V2Web.addElement(notify, 'button', (e) => {
-        e.classList.add('delete');
-        e.addEventListener('click', () => {
-          this.clear();
-        });
-      });
-
-      V2Web.addElement(notify, 'div', (e) => {
-        this.#elementText = e;
-      });
+      this.#element.classList.add('notify');
     });
 
     return Object.seal(this);
@@ -250,118 +180,88 @@ class V2WebNotify {
 
   clear(text) {
     this.#element.style.display = 'none';
-    this.#element.classList.remove('is-info');
-    this.#element.classList.remove('is-success');
-    this.#element.classList.remove('is-warning');
-    this.#element.classList.remove('is-danger');
-    this.#elementText.innerHTML = '';
+    this.#element.classList.remove('--info', '--warn', '--error');
+    this.#element.innerHTML = '';
   }
 
   info(text) {
     this.clear();
-    this.#element.classList.add('is-info');
+    this.#element.classList.add('--info');
     this.#element.style.display = '';
-    this.#elementText.innerHTML = text;
-  }
-
-  success(text) {
-    this.clear();
-    this.#element.classList.add('is-success');
-    this.#element.style.display = '';
-    this.#elementText.innerHTML = text;
+    this.#element.innerHTML = text;
   }
 
   warn(text) {
     this.clear();
-    this.#element.classList.add('is-warning');
+    this.#element.classList.add('--warn');
     this.#element.style.display = '';
-    this.#elementText.innerHTML = text;
+    this.#element.innerHTML = text;
   }
 
   error(text) {
     this.clear();
-    this.#element.classList.add('is-danger');
+    this.#element.classList.add('--error');
     this.#element.style.display = '';
-    this.#elementText.innerHTML = text;
+    this.#element.innerHTML = text;
   }
 }
 
-// Create a row of buttons and input elements.
-class V2WebField {
-  #element = null;
+// A row of buttons and input elements.
+class V2WebMenu {
+  element = null;
 
   constructor(element, handler) {
-    V2Web.addElement(element, 'div', (e) => {
-      this.#element = e;
-      e.classList.add('field');
-      e.classList.add('has-addons');
+    V2Web.addElement(element, 'menu', (e) => {
+      this.element = e;
+
       if (handler)
-        handler(this, e);
+        handler(this);
     });
 
     return Object.seal(this);
   }
 
-  addElement(element, handler) {
-    V2Web.addElement(this.#element, 'p', (p) => {
-      p.classList.add('control');
+  addItem(handler) {
+    V2Web.addElement(this.element, 'li', (li) => {
+      if (handler)
+        handler(li);
+    });
+  }
 
-      V2Web.addElement(p, element, (e) => {
+  addElement(element, handler) {
+    this.addItem((li) => {
+      V2Web.addElement(li, element, (e) => {
         if (handler)
-          handler(e, p);
+          handler(e);
       });
     });
   }
 
-  addButton(handler) {
-    this.addElement('button', (e, p) => {
-      e.classList.add('button');
-      e.classList.add('is-rounded');
-
-      if (handler)
-        handler(e, p);
-    });
-  }
-
-  addInput(type, handler) {
-    this.addElement('input', (e, p) => {
-      e.classList.add('input');
-      e.classList.add('is-rounded');
-      e.type = type;
-
-      if (handler)
-        handler(e, p);
-    });
+  remove() {
+    this.element.remove();
   }
 }
 
 class V2WebTabs {
   current = null;
+  element = null;
 
-  #element = null;
   #elementsTabs = null;
   #tabs = {};
   #notifiers = [];
 
   constructor(element, handler) {
     V2Web.addElement(element, 'div', (tabs) => {
-      this.#element = tabs;
+      this.element = tabs;
 
-      V2Web.addElement(tabs, 'div', (e) => {
-        e.classList.add('tabs');
-        e.classList.add('is-toggle');
-        e.classList.add('is-toggle-rounded');
-        e.classList.add('is-centered');
-        e.classList.add('is-fullwidth');
-
-        V2Web.addElement(e, 'ul', (ul) => {
-          this.#elementsTabs = ul;
-        });
+      new V2WebMenu(tabs, (menu) => {
+        menu.element.classList.add('bar');
+        this.#elementsTabs = menu;
       });
     });
 
     if (handler)
-      handler(this, this.#element);
+      handler(this);
 
     return Object.seal(this);
   }
@@ -370,10 +270,10 @@ class V2WebTabs {
     this.#notifiers.push(handler);
   }
 
-  addTab(name, text, icon, handler) {
+  addTab(name, icon, text, handler) {
     this.#tabs[name] = {};
 
-    V2Web.addElement(this.#elementsTabs, 'li', (e) => {
+    this.#elementsTabs.addElement('button', (e) => {
       e.addEventListener('click', () => {
         // Do not switch inactive tabs.
         if (!this.current)
@@ -382,19 +282,14 @@ class V2WebTabs {
         this.switchTab(name);
       });
 
-      V2Web.addElement(e, 'a', (e) => {
-        V2Web.addElement(e, 'span', (s) => {
-          s.classList.add('icon');
-          s.classList.add('fa');
-          s.classList.add('fa-' + icon);
-        });
-        V2Web.addElement(e, 'span', (s) => { s.textContent = text; });
+      V2Web.addElement(e, 'i', (i) => {
+        i.classList.add('icon', icon);
       });
-
+      e.append(text);
       this.#tabs[name].tab = e;
     });
 
-    V2Web.addElement(this.#element, 'div', (e) => {
+    V2Web.addElement(this.element, 'div', (e) => {
       if (handler)
         handler(e);
 
@@ -406,11 +301,11 @@ class V2WebTabs {
   switchTab(name) {
     for (const id of Object.keys(this.#tabs)) {
       if (id === name) {
-        this.#tabs[id].tab.classList.add('is-active');
+        this.#tabs[id].tab.classList.add('info');
         this.#tabs[id].canvas.style.display = '';
 
       } else {
-        this.#tabs[id].tab.classList.remove('is-active');
+        this.#tabs[id].tab.classList.remove('info');
         this.#tabs[id].canvas.style.display = 'none';
       }
     }
@@ -429,83 +324,99 @@ class V2WebTabs {
   }
 
   remove() {
-    this.#element.remove();
+    this.element.remove();
   }
 }
 
 class V2WebModule {
   canvas = null;
+  id = null;
 
-  #section = null;
-  #id = null;
-  #title = null;
+  #header = Object.seal({
+    element: null,
+    icon: null,
+    title: null,
+  });
 
-  constructor(id, title, subtitle) {
-    this.#id = id;
-    this.#title = title;
+  constructor(id, icon, title, subtitle) {
+    if (id)
+      this.id = id;
 
-    this.#section = document.createElement('section');
-    if (this.#id !== null)
-      this.#section.id = id;
+    this.canvas = document.createElement('section');
+    if (this.id)
+      this.canvas.id = id;
 
-    V2Web.addElement(this.#section, 'div', (container) => {
-      container.classList.add('container');
-
-      if (title !== null) {
-        V2Web.addElement(container, 'h2', (e) => {
-          e.classList.add('title');
-          e.textContent = title;
-        });
-
-        V2Web.addElement(container, 'p', (e) => {
-          e.classList.add('subtitle');
-          e.textContent = subtitle;
-        });
-      }
-
-      V2Web.addElement(container, 'div', (e) => {
-        this.canvas = e;
-      });
+    V2Web.addElement(this.canvas, 'hgroup', (e) => {
+      this.#header.element = e;
     });
+
+    if (title) {
+      this.title(icon, title, subtitle);
+    }
+  }
+
+  title(icon, title, subtitle) {
+    this.#header.icon = icon || null;
+    this.#header.title = title || null;
+
+    while (this.#header.element.firstChild)
+      this.#header.element.firstChild.remove();
+
+    if (!title)
+      return;
+
+    V2Web.addElement(this.#header.element, 'h2', (e) => {
+      if (icon)
+        V2Web.addElement(e, 'i', (i) => {
+          i.classList.add('icon', icon);
+        });
+
+      e.append(title);
+    });
+
+    if (subtitle) {
+      V2Web.addElement(this.#header.element, 'p', (e) => {
+        e.textContent = subtitle;
+      });
+    }
   }
 
   attach() {
-    if (this.#section.parentNode)
+    if (this.canvas.parentNode)
       return;
 
-    if (this.#id)
-      V2Web.addNavigation(this.#id, this.#title, '#' + this.#id);
+    if (this.id && this.#header.title)
+      V2Web.addNavigationSection(this.id, this.#header.icon, this.#header.title, '#' + this.id);
 
-    document.body.appendChild(this.#section);
-  }
-
-  // Clear all content.
-  reset() {
-    while (this.canvas.firstChild)
-      this.canvas.firstChild.remove();
+    document.querySelector('main').appendChild(this.canvas);
   }
 
   detach() {
-    if (!this.#section.parentNode)
+    if (!this.canvas.parentNode)
       return;
 
-    if (this.#id)
-      V2Web.removeNavigation(this.#id);
+    if (this.id && this.#header.title)
+      V2Web.removeNavigationSection(this.id);
 
-    this.#section.remove();
+    this.canvas.remove();
   }
 
   show() {
-    if (this.#id)
-      V2Web.addNavigation(this.#id, this.#title, '#' + this.#id);
+    if (this.id)
+      V2Web.addNavigationSection(this.id, this.#header.icon, this.#header.title, '#' + this.id);
 
-    this.#section.style.display = '';
+    this.canvas.style.display = '';
   }
 
   hide() {
-    if (this.#id)
-      V2Web.removeNavigation(this.#id);
+    if (this.id)
+      V2Web.removeNavigationSection(this.id);
 
-    this.#section.style.display = 'none';
+    this.canvas.style.display = 'none';
+  }
+
+  reset() {
+    while (this.canvas.firstChild)
+      this.canvas.firstChild.remove();
   }
 }

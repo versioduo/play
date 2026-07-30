@@ -1,7 +1,5 @@
-// © Kay Sievers <kay@versioduo.com>, 2019-2022
-// SPDX-License-Identifier: Apache-2.0
-
 class V2PlayerMix extends V2WebModule {
+  #element = null;
   #player = null;
   #midi = null;
   #buttons = Object.seal({
@@ -24,9 +22,14 @@ class V2PlayerMix extends V2WebModule {
   #config = null;
 
   constructor(player, midi) {
-    super('mix', 'Mix', 'Forward MIDI messages between devices');
+    super('mix', '--sliders', 'Mix', 'Forward MIDI Messages Between Devices');
     this.#player = player;
     this.#midi = midi;
+
+    V2Web.addElement(this.canvas, 'div', (e) => {
+      this.#element = e;
+      e.id = this.id + '.element';
+    });
 
     this.#midi.addNotifier('state', (event) => {
       this.#update();
@@ -70,11 +73,11 @@ class V2PlayerMix extends V2WebModule {
       return;
 
     this.#connect(this.#input, input);
-    this.#input.select.select(input);
+    this.#input.select.selectEntry(input);
     this.#input.device.input.onmidimessage = this.#input.device.handleMessage.bind(this.#input.device);
 
     this.#connect(this.#output, output);
-    this.#output.select.select(output);
+    this.#output.select.selectEntry(output);
   }
 
   #update() {
@@ -112,8 +115,8 @@ class V2PlayerMix extends V2WebModule {
   }
 
   show() {
-    V2Web.addButtons(this.canvas, (buttons) => {
-      V2Web.addButton(buttons, (e) => {
+    new V2WebMenu(this.#element, (menu) => {
+      menu.addElement('button', (e) => {
         this.#buttons.reset = e;
         e.textContent = 'Reset';
         e.disabled = true;
@@ -135,9 +138,9 @@ class V2PlayerMix extends V2WebModule {
         });
       });
 
-      V2Web.addButton(buttons, (e) => {
+      menu.addElement('button', (e) => {
         this.#buttons.save = e;
-        e.classList.add('is-link');
+        e.classList.add('primary');
         e.textContent = 'Save';
         e.disabled = true;
         e.addEventListener('click', () => {
@@ -168,29 +171,24 @@ class V2PlayerMix extends V2WebModule {
       });
     });
 
-    V2Web.addElement(this.canvas, 'div', (line) => {
-      line.classList.add('is-flex');
-      line.classList.add('is-justify-content-space-between');
-      line.classList.add('my-1');
-      line.classList.add('is-align-items-center');
-
-      V2Web.addElement(line, 'div', (e) => {
-        e.classList.add('is-size-4');
-        e.classList.add('mr-2');
-        e.textContent = 'Input';
-      });
-
-      V2Web.addElement(line, 'div', (e) => {
-        this.#input.name = e;
-        this.#input.name.style.visibility = 'hidden';
-        e.classList.add('tag');
-        e.classList.add('is-medium');
-        e.classList.add('ellipsis');
-      });
+    V2Web.addElement(this.#element, 'p', (e) => {
+      e.classList.add('title');
+      e.textContent = 'Input';
     });
 
-    this.#input.select = new V2MIDISelect(this.canvas, (e) => {
-      e.classList.add('mb-3');
+    V2Web.addElement(this.#element, 'p', (e) => {
+      this.#input.name = e;
+      this.#input.name.style.visibility = 'hidden';
+    });
+
+    new V2WebMenu(this.#element, (menu) => {
+      menu.addElement('span', (e) => {
+        e.textContent = 'Device';
+      });
+
+      menu.addItem((li) => {
+        this.#input.select = new V2MIDISelect(li);
+      });
     });
 
     this.#input.select.addNotifier('select', (device) => {
@@ -233,101 +231,79 @@ class V2PlayerMix extends V2WebModule {
       this.#output.device.sendMessage(message);
     });
 
-    new V2WebField(this.canvas, (field) => {
-      field.addButton((e) => {
-        e.classList.add('width-label');
-        e.classList.add('has-background-grey-lighter');
-        e.classList.add('inactive');
+    new V2WebMenu(this.#element, (menu) => {
+      menu.addElement('span', (e) => {
         e.textContent = 'Transpose';
-        e.tabIndex = -1;
       });
 
-      field.addElement('span', (e) => {
-        e.classList.add('select');
-        e.classList.add('is-rounded');
+      menu.addElement('select', (select) => {
+        this.#transpose = select;
 
-        V2Web.addElement(e, 'select', (select) => {
-          this.#transpose = select;
-
-          for (const i of [48, 36, 24, 12, 0, -12, -24, -36, -48]) {
-            V2Web.addElement(select, 'option', (e) => {
-              e.value = i;
-              e.text = (i > 0) ? '+' + i : i;
-
-              if (i === 0)
-                e.selected = true;
-            });
-          }
-
-          e.addEventListener('change', () => {
-            this.#manual = true;
-            this.#update();
-          });
-        });
-      });
-    });
-
-    new V2WebField(this.canvas, (field) => {
-      field.addButton((e) => {
-        e.classList.add('width-label');
-        e.classList.add('has-background-grey-lighter');
-        e.classList.add('inactive');
-        e.textContent = 'Channel';
-        e.tabIndex = -1;
-      });
-
-      field.addElement('span', (e) => {
-        e.classList.add('select');
-        e.classList.add('is-rounded');
-
-        V2Web.addElement(e, 'select', (select) => {
-          this.#channel = select;
-
+        for (const i of [48, 36, 24, 12, 0, -12, -24, -36, -48]) {
           V2Web.addElement(select, 'option', (e) => {
-            e.value = '';
-            e.text = '–';
-            e.selected = true;
-          });
+            e.value = i;
+            e.text = (i > 0) ? '+' + i : i;
 
-          for (let i = 1; i < 17; i++) {
-            V2Web.addElement(select, 'option', (e) => {
-              e.value = i;
-              e.text = i;
-            });
-          }
-
-          e.addEventListener('change', () => {
-            this.#manual = true;
-            this.#update();
+            if (i === 0)
+              e.selected = true;
           });
+        }
+
+        select.addEventListener('change', () => {
+          this.#manual = true;
+          this.#update();
         });
       });
     });
 
-    V2Web.addElement(this.canvas, 'div', (line) => {
-      line.classList.add('is-flex');
-      line.classList.add('is-justify-content-space-between');
-      line.classList.add('my-1');
-      line.classList.add('is-align-items-center');
-
-      V2Web.addElement(line, 'div', (e) => {
-        e.classList.add('is-size-4');
-        e.classList.add('mr-2');
-        e.textContent = 'Output';
+    new V2WebMenu(this.#element, (menu) => {
+      menu.addElement('span', (e) => {
+        e.textContent = 'Channel';
       });
 
-      V2Web.addElement(line, 'div', (e) => {
-        this.#output.name = e;
-        this.#output.name.style.visibility = 'hidden';
-        e.classList.add('tag');
-        e.classList.add('is-medium');
-        e.classList.add('ellipsis');
+      menu.addElement('select', (select) => {
+        this.#channel = select;
+
+        V2Web.addElement(select, 'option', (e) => {
+          e.value = '';
+          e.text = '–';
+          e.selected = true;
+        });
+
+        for (let i = 1; i < 17; i++) {
+          V2Web.addElement(select, 'option', (e) => {
+            e.value = i;
+            e.text = i;
+          });
+        }
+
+        select.addEventListener('change', () => {
+          this.#manual = true;
+          this.#update();
+        });
       });
     });
 
-    this.#output.select = new V2MIDISelect(this.canvas, (e) => {
-      e.classList.add('mb-3');
+    V2Web.addElement(this.#element, 'p', (e) => {
+      e.classList.add('title');
+      e.textContent = 'Output';
     });
+
+    V2Web.addElement(this.#element, 'p', (e) => {
+      this.#output.name = e;
+      this.#output.name.style.visibility = 'hidden';
+    });
+
+    new V2WebMenu(this.#element, (menu) => {
+      menu.addElement('span', (e) => {
+        e.textContent = 'Device';
+      });
+
+      menu.addItem((li) => {
+        this.#output.select = new V2MIDISelect(li);
+      });
+    });
+
 
     this.#output.select.addNotifier('select', (device) => {
       if (device)
@@ -383,7 +359,8 @@ class V2PlayerMix extends V2WebModule {
     this.#manual = false;
     this.#config = null;
 
-    super.reset();
     super.detach();
+    while (this.#element.firstChild)
+      this.#element.firstChild.remove();
   }
 }

@@ -1,7 +1,5 @@
-// © Kay Sievers <kay@versioduo.com>, 2019-2022
-// SPDX-License-Identifier: Apache-2.0
-
 class V2PlayerInstruments extends V2WebModule {
+  #element = null;
   #player = null;
   #midi = null;
   #midiFile = null;
@@ -12,7 +10,12 @@ class V2PlayerInstruments extends V2WebModule {
   #tracks = new Map();
 
   constructor(player, midi, midiFile) {
-    super('instruments', 'Instruments', 'Manually assign devices to MIDI tracks');
+    super('instruments', '--gear', 'Instruments', 'Manually Assign Devices to MIDI Tracks');
+
+    V2Web.addElement(this.canvas, 'div', (e) => {
+      this.#element = e;
+      e.id = this.id + '.element';
+    });
 
     this.#player = player;
     this.#midi = midi;
@@ -54,8 +57,8 @@ class V2PlayerInstruments extends V2WebModule {
   show(name) {
     this.attach();
 
-    V2Web.addButtons(this.canvas, (buttons) => {
-      V2Web.addButton(buttons, (e) => {
+    new V2WebMenu(this.#element, (menu) => {
+      menu.addElement('button', (e) => {
         this.#buttons.reset = e;
         e.textContent = 'Reset';
         e.disabled = true;
@@ -76,10 +79,10 @@ class V2PlayerInstruments extends V2WebModule {
         });
       });
 
-      V2Web.addButton(buttons, (e) => {
+      menu.addElement('button', (e) => {
         this.#buttons.save = e;
         e.textContent = 'Save';
-        e.classList.add('is-link');
+        e.classList.add('primary');
         e.disabled = true;
         e.addEventListener('click', () => {
           let instruments = new Map();
@@ -123,73 +126,72 @@ class V2PlayerInstruments extends V2WebModule {
         volume: null
       });
 
+      V2Web.addElement(this.#element, 'hr');
+
       // Single track files have no separate track title.
       if (i > 0) {
-        V2Web.addElement(this.canvas, 'div', (e) => {
-          e.classList.add('ellipsis');
-          e.classList.add('my-1');
-          e.classList.add('is-size-4');
+        V2Web.addElement(this.#element, 'p', (e) => {
+          e.classList.add('title');
           e.textContent = track.getTag('title') || 'Track';
         });
       }
 
-      V2Web.addElement(this.canvas, 'div', (line) => {
-        line.classList.add('is-flex');
-        line.classList.add('is-justify-content-space-between');
-        line.classList.add('is-size-6');
-        line.classList.add('mb-2');
+      V2Web.addElement(this.#element, 'p', (e) => {
+        e.classList.add('center');
 
-        V2Web.addElement(line, 'div', (e) => {
-          e.classList.add('ellipsis');
-          e.classList.add('mr-2');
-
-          const instrument = track.getTag('instrument');
-          if (instrument) {
-            e.textContent = instrument;
-
-          } else {
-            t.program = track.getProgram();
-            if (t.program !== null)
-              e.textContent = V2MIDI.GM.Program.Name[t.program];
-          }
-        });
-
-        V2Web.addElement(line, 'div', (e) => {
-          e.classList.add('tag');
-          e.classList.add('is-medium');
-          e.classList.add('ellipsis');
-          t.deviceElement = e;
-        });
-      });
-
-      t.select = new V2MIDISelect(this.canvas);
-      t.select.addNotifier('select', (selected) => {
-        if (selected) {
-          if (t.deviceName === selected.name && Number(t.manual.channel.value) === -1)
-            t.manual.device = null;
-
-          else
-            t.manual.device = selected.name;
-
-          t.manual.channel.disabled = false;
-          t.volume.disabled = false;
-          t.device.input = selected.in;
-          t.device.output = selected.out;
-          t.select.setConnected();
-          this.#syncVolume(t);
+        const instrument = track.getTag('instrument');
+        if (instrument) {
+          e.textContent = instrument;
 
         } else {
-          t.manual.device = '';
-          t.manual.channel.selectedIndex = 0;
-          t.manual.channel.disabled = true;
-          t.volume.value = 100;
-          t.volume.disabled = true;
-          t.device.disconnect();
-          t.select.setDisconnected();
+          t.program = track.getProgram();
+          if (t.program !== null)
+            e.textContent = V2MIDI.GM.Program.Name[t.program];
         }
+      });
 
-        t.manual.changed = true;
-        this.#updateConfig();
+      V2Web.addElement(this.#element, 'p', (e) => {
+        t.deviceElement = e;
+        e.classList.add('center');
+      });
+
+      new V2WebMenu(this.#element, (menu) => {
+        menu.addElement('span', (e) => {
+          e.textContent = 'Device';
+        });
+
+        menu.addItem((li) => {
+          t.select = new V2MIDISelect(li);
+          t.select.element.classList.add('grow');
+
+          t.select.addNotifier('select', (selected) => {
+            if (selected) {
+              if (t.deviceName === selected.name && Number(t.manual.channel.value) === -1)
+                t.manual.device = null;
+              else
+                t.manual.device = selected.name;
+
+              t.manual.channel.disabled = false;
+              t.volume.disabled = false;
+              t.device.input = selected.in;
+              t.device.output = selected.out;
+              t.select.setConnected();
+              this.#syncVolume(t);
+
+            } else {
+              t.manual.device = '';
+              t.manual.channel.selectedIndex = 0;
+              t.manual.channel.disabled = true;
+              t.volume.value = 100;
+              t.volume.disabled = true;
+              t.device.disconnect();
+              t.select.setDisconnected();
+            }
+
+            t.manual.changed = true;
+            this.#updateConfig();
+          });
+        });
       });
 
       t.select.addNotifier('disconnect', (selected) => {
@@ -202,53 +204,41 @@ class V2PlayerInstruments extends V2WebModule {
         this.#player.assignDevices();
       });
 
-      new V2WebField(this.canvas, (field, element) => {
-        element.classList.add('mt-2');
-
-        field.addButton((e) => {
-          e.classList.add('width-label');
-          e.classList.add('has-background-grey-lighter');
-          e.classList.add('inactive');
+      new V2WebMenu(this.#element, (menu) => {
+        menu.addElement('span', (e) => {
           e.textContent = 'Channel';
-          e.tabIndex = -1;
         });
 
-        field.addElement('span', (e) => {
-          e.classList.add('select');
-          e.classList.add('is-rounded');
+        menu.addElement('select', (select) => {
+          t.manual.channel = select;
+          select.disabled = true;
 
-          V2Web.addElement(e, 'select', (select) => {
-            t.manual.channel = select;
-            select.disabled = true;
+          V2Web.addElement(select, 'option', (e) => {
+            e.value = -1;
+            e.text = '–';
+          });
 
+          for (let i = 0; i < 16; i++) {
             V2Web.addElement(select, 'option', (e) => {
-              e.value = -1;
-              e.text = '–';
+              e.value = i;
+              e.text = i + 1;
             });
+          }
 
-            for (let i = 0; i < 16; i++) {
-              V2Web.addElement(select, 'option', (e) => {
-                e.value = i;
-                e.text = i + 1;
-              });
-            }
-
-            e.addEventListener('change', () => {
-              t.manual.changed = true;
-              this.#updateConfig();
-            });
+          select.addEventListener('change', () => {
+            t.manual.changed = true;
+            this.#updateConfig();
           });
         });
       });
 
-      V2Web.addElement(this.canvas, 'input', (e) => {
+      V2Web.addElement(this.#element, 'input', (e) => {
         t.volume = e;
-        e.classList.add('range');
+        e.style.marginTop = '2.5rem';
         e.type = 'range';
         e.max = 127;
         e.value = 100;
         e.disabled = true;
-        e.classList.add('mt-5');
         e.addEventListener('input', () => {
           this.#syncVolume(t, e.value);
           t.device.sendControlChange(0, V2MIDI.CC.channelVolume, e.value);
@@ -396,7 +386,7 @@ class V2PlayerInstruments extends V2WebModule {
       track.volume.disabled = false;
       track.device.input = device.in;
       track.device.output = device.out;
-      track.select.select(device);
+      track.select.selectEntry(device);
       track.select.setConnected();
       this.#syncVolume(track);
     }
@@ -418,9 +408,11 @@ class V2PlayerInstruments extends V2WebModule {
   }
 
   reset() {
-    super.reset();
     this.detach();
     this.silence();
+    while (this.#element.firstChild)
+      this.#element.firstChild.remove();
+
     for (const track of this.#tracks.values())
       track.device.disconnect();
 

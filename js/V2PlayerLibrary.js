@@ -1,6 +1,3 @@
-// © Kay Sievers <kay@versioduo.com>, 2019-2022
-// SPDX-License-Identifier: Apache-2.0
-
 class V2PlayerLibrary extends V2WebModule {
   #player = null;
   #bannerNotify = null;
@@ -14,7 +11,7 @@ class V2PlayerLibrary extends V2WebModule {
   });
 
   constructor(player) {
-    super('library', 'Library', 'Play, add, remove music');
+    super('library', '--book-open-reader', 'Library', 'Play, Add, Remove Music');
     this.attach();
 
     this.#player = player;
@@ -22,24 +19,23 @@ class V2PlayerLibrary extends V2WebModule {
 
     V2Web.addElement(this.canvas, 'div', (e) => {
       this.#element = e;
-      e.classList.add('mb-4');
     });
 
-    V2Web.addButtons(this.#element, (buttons) => {
-      V2Web.addButton(buttons, (e) => {
+    new V2WebMenu(this.#element, (menu) => {
+      menu.addElement('button', (e) => {
         e.textContent = 'Load';
         e.addEventListener('click', () => {
           this.#openFile();
         });
 
-        V2Web.addFileDrop(e, this.#element, ['is-focused', 'is-link', 'is-light'], (file) => {
+        V2Web.addFileDrop(e, this.#element, ['warn'], (file) => {
           this.#readFile(file);
           // Get called again for the next file in the list.
           return true;
         });
       });
 
-      V2Web.addButton(buttons, (e) => {
+      menu.addElement('button', (e) => {
         e.textContent = 'Delete';
         e.addEventListener('click', () => {
           this.#remove = !this.#remove;
@@ -47,19 +43,19 @@ class V2PlayerLibrary extends V2WebModule {
         });
       });
 
-      V2Web.addButton(buttons, (e) => {
+      menu.addElement('button', (e) => {
         e.textContent = 'Stop';
-        e.classList.add('isEnabled');
+        e.classList.add('enabled');
         e.addEventListener('click', () => {
           this.#player.stop();
         });
       });
 
-      V2Web.addButton(buttons, (e) => {
+      menu.addElement('button', (e) => {
         this.#playButton = e;
-        e.classList.add('is-link');
+        e.classList.add('primary');
         e.textContent = 'Play';
-        e.classList.add('isEnabled');
+        e.classList.add('enabled');
         e.addEventListener('click', () => {
           this.#player.play();
         });
@@ -147,29 +143,25 @@ class V2PlayerLibrary extends V2WebModule {
       for (const file of files) {
         const highlight = (e) => {
           if (this.#current.element)
-            this.#current.element.classList.remove('is-active');
+            this.#current.element.classList.remove('highlight');
 
           this.#current.element = e;
-          e.classList.add('is-active');
+          e.classList.add('highlight');
         };
 
-        new V2WebField(this.#list, (field) => {
-          field.addButton((button, p) => {
-            p.classList.add('is-expanded');
-            p.style.minWidth = 0; // Allow flex container to shrink.
-            button.classList.add('is-fullwidth');
+        new V2WebMenu(this.#list, (menu) => {
+          menu.element.classList.add('full');
 
-            // We are inside a flex container, wrap ellipsis in a block element.
-            V2Web.addElement(button, 'div', (e) => {
-              e.classList.add('ellipsis');
-              e.textContent = file.title;
-            });
+          menu.addElement('button', (e) => {
+            e.classList.add('grow');
+            e.classList.add('ellipsis');
+            e.textContent = file.title;
 
             if (this.#current.file === file.name)
-              highlight(button);
+              highlight(e);
 
-            button.addEventListener('click', () => {
-              highlight(button);
+            e.addEventListener('click', () => {
+              highlight(e);
               this.#player.reset();
               this.#current.file = file.name;
               this.#player.show(file.name, file.buffer);
@@ -178,9 +170,9 @@ class V2PlayerLibrary extends V2WebModule {
           });
 
           if (this.#remove) {
-            field.addButton((e) => {
-              e.classList.add('has-background-grey-lighter');
-              e.textContent = '✕';
+            menu.addElement('button', (e) => {
+              e.classList.add('delete');
+              e.classList.add('warn');
 
               e.addEventListener('click', () => {
                 V2PlayerDatabase.deleteFile(file.name, () => {

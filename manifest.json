@@ -1,0 +1,15 @@
+{
+  "background_color": "black",
+  "display": "standalone",
+  "icons": [
+    {
+      "src": "icons/logo-maskable.svg",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "name": "V2 play",
+  "start_url": "./",
+  "scope": ".",
+  "theme_color": "black"
+}

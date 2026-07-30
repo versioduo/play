@@ -1,6 +1,3 @@
-// © Kay Sievers <kay@versioduo.com>, 2019-2022
-// SPDX-License-Identifier: Apache-2.0
-
 class V2PlayerDatabase {
   static #getStore(store, handler) {
     const request = window.indexedDB.open('play', 3);

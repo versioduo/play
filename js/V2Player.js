@@ -1,6 +1,3 @@
-// © Kay Sievers <kay@versioduo.com>, 2019-2022
-// SPDX-License-Identifier: Apache-2.0
-
 class V2Player {
   #midi = null;
   #midiFile = null;
@@ -76,7 +73,7 @@ class V2Player {
 
   // Dim UI elements when no file is loaded.
   #setEnabled(enabled) {
-    for (const e of document.querySelectorAll('.isEnabled'))
+    for (const e of document.querySelectorAll('.enabled'))
       e.disabled = !enabled;
   }
 
@@ -96,7 +93,7 @@ class V2Player {
       return false;
     }
 
-    this.#display.show(this.getTitle() || 'File', this.#midiFile.tracks[0].getTag('copyright'));
+    this.#display.show(this.getTitle() || 'File', this.#midiFile.tracks[0].getTag('creator'));
     this.#instruments.show(name);
     this.#devices.show();
     this.#mix.show();
