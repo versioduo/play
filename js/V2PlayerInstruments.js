@@ -1,6 +1,4 @@
-class V2PlayerInstruments extends V2WebModule {
-  #element = null;
-  #player = null;
+class V2PlayerInstruments extends V2AppSection {
   #midi = null;
   #midiFile = null;
   #buttons = Object.seal({
@@ -9,15 +7,10 @@ class V2PlayerInstruments extends V2WebModule {
   });
   #tracks = new Map();
 
-  constructor(player, midi, midiFile) {
-    super('instruments', '--gear', 'Instruments', 'Manually Assign Devices to MIDI Tracks');
+  constructor(app, midi, midiFile) {
+    super(app, 'instruments', '--gear', 'Instruments', 'Manually Assign Devices to MIDI Tracks');
+    Object.seal(this);
 
-    V2Web.addElement(this.canvas, 'div', (e) => {
-      this.#element = e;
-      e.id = this.id + '.element';
-    });
-
-    this.#player = player;
     this.#midi = midi;
     this.#midiFile = midiFile;
   }
@@ -55,9 +48,9 @@ class V2PlayerInstruments extends V2WebModule {
   }
 
   show(name) {
-    this.attach();
+    this.addSection();
 
-    new V2WebMenu(this.#element, (menu) => {
+    new V2AppMenu(this.canvas, (menu) => {
       menu.addElement('button', (e) => {
         this.#buttons.reset = e;
         e.textContent = 'Reset';
@@ -72,7 +65,7 @@ class V2PlayerInstruments extends V2WebModule {
             track.manual.changed = false;
             track.device.disconnect();
             track.select.setDisconnected();
-            this.#player.assignDevices();
+            this.app.player.assignDevices();
           }
 
           this.#updateConfig(true);
@@ -108,145 +101,151 @@ class V2PlayerInstruments extends V2WebModule {
       });
     });
 
-    for (const [i, track] of this.#midiFile.tracks.entries()) {
-      if (!track.hasMIDIMessages())
-        continue;
 
-      const t = Object.seal({
-        deviceElement: null,
-        program: null,
-        manual: Object.seal({
-          device: null,
-          channel: null,
-          changed: false
-        }),
-        select: null,
-        device: new V2MIDIDevice(),
-        deviceName: this.#midiFile.tracks[i].getTag('deviceName'),
-        volume: null
-      });
+    V2App.addElement(this.canvas, 'ul', (cards) => {
+      cards.classList.add('cards', '--grid');
 
-      V2Web.addElement(this.#element, 'hr');
+      for (const [i, track] of this.#midiFile.tracks.entries()) {
+        if (!track.hasMIDIMessages())
+          continue;
 
-      // Single track files have no separate track title.
-      if (i > 0) {
-        V2Web.addElement(this.#element, 'p', (e) => {
-          e.classList.add('title');
-          e.textContent = track.getTag('title') || 'Track';
-        });
-      }
-
-      V2Web.addElement(this.#element, 'p', (e) => {
-        e.classList.add('center');
-
-        const instrument = track.getTag('instrument');
-        if (instrument) {
-          e.textContent = instrument;
-
-        } else {
-          t.program = track.getProgram();
-          if (t.program !== null)
-            e.textContent = V2MIDI.GM.Program.Name[t.program];
-        }
-      });
-
-      V2Web.addElement(this.#element, 'p', (e) => {
-        t.deviceElement = e;
-        e.classList.add('center');
-      });
-
-      new V2WebMenu(this.#element, (menu) => {
-        menu.addElement('span', (e) => {
-          e.textContent = 'Device';
+        const t = Object.seal({
+          deviceElement: null,
+          program: null,
+          manual: Object.seal({
+            device: null,
+            channel: null,
+            changed: false
+          }),
+          select: null,
+          device: new V2MIDIDevice(),
+          deviceName: this.#midiFile.tracks[i].getTag('deviceName'),
+          volume: null
         });
 
-        menu.addItem((li) => {
-          t.select = new V2MIDISelect(li);
-          t.select.element.classList.add('grow');
-
-          t.select.addNotifier('select', (selected) => {
-            if (selected) {
-              if (t.deviceName === selected.name && Number(t.manual.channel.value) === -1)
-                t.manual.device = null;
-              else
-                t.manual.device = selected.name;
-
-              t.manual.channel.disabled = false;
-              t.volume.disabled = false;
-              t.device.input = selected.in;
-              t.device.output = selected.out;
-              t.select.setConnected();
-              this.#syncVolume(t);
-
-            } else {
-              t.manual.device = '';
-              t.manual.channel.selectedIndex = 0;
-              t.manual.channel.disabled = true;
-              t.volume.value = 100;
-              t.volume.disabled = true;
-              t.device.disconnect();
-              t.select.setDisconnected();
-            }
-
-            t.manual.changed = true;
-            this.#updateConfig();
-          });
-        });
-      });
-
-      t.select.addNotifier('disconnect', (selected) => {
-        t.manual.channel.selectedIndex = 0;
-        t.device.disconnect();
-        t.select.setDisconnected();
-      });
-
-      t.select.addNotifier('add', (selected) => {
-        this.#player.assignDevices();
-      });
-
-      new V2WebMenu(this.#element, (menu) => {
-        menu.addElement('span', (e) => {
-          e.textContent = 'Channel';
-        });
-
-        menu.addElement('select', (select) => {
-          t.manual.channel = select;
-          select.disabled = true;
-
-          V2Web.addElement(select, 'option', (e) => {
-            e.value = -1;
-            e.text = '–';
-          });
-
-          for (let i = 0; i < 16; i++) {
-            V2Web.addElement(select, 'option', (e) => {
-              e.value = i;
-              e.text = i + 1;
+        V2App.addElement(cards, 'li', (card) => {
+          // Single track files have no separate track title.
+          if (i > 0) {
+            V2App.addElement(card, 'hgroup', (hg) => {
+              V2App.addElement(hg, 'h3', (e) => {
+                e.textContent = track.getTag('title') || 'Track';
+              });
             });
           }
 
-          select.addEventListener('change', () => {
-            t.manual.changed = true;
-            this.#updateConfig();
+          V2App.addElement(card, 'p', (e) => {
+            e.classList.add('center');
+
+            const instrument = track.getTag('instrument');
+            if (instrument) {
+              e.textContent = instrument;
+
+            } else {
+              t.program = track.getProgram();
+              if (t.program !== null)
+                e.textContent = V2MIDI.GM.Program.Name[t.program];
+            }
+          });
+
+          V2App.addElement(card, 'p', (e) => {
+            t.deviceElement = e;
+            e.classList.add('center');
+          });
+
+          new V2AppMenu(card, (menu) => {
+            menu.addElement('span', (e) => {
+              e.textContent = 'Device';
+            });
+
+            menu.addItem((li) => {
+              t.select = new V2MIDISelect(li);
+              t.select.element.classList.add('grow');
+
+              t.select.addNotifier('select', (selected) => {
+                if (selected) {
+                  if (t.deviceName === selected.name && Number(t.manual.channel.value) === -1)
+                    t.manual.device = null;
+                  else
+                    t.manual.device = selected.name;
+
+                  t.manual.channel.disabled = false;
+                  t.volume.disabled = false;
+                  t.device.input = selected.in;
+                  t.device.output = selected.out;
+                  t.select.setConnected();
+                  this.#syncVolume(t);
+
+                } else {
+                  t.manual.device = '';
+                  t.manual.channel.selectedIndex = 0;
+                  t.manual.channel.disabled = true;
+                  t.volume.value = 100;
+                  t.volume.disabled = true;
+                  t.device.disconnect();
+                  t.select.setDisconnected();
+                }
+
+                t.manual.changed = true;
+                this.#updateConfig();
+              });
+            });
+          });
+
+          t.select.addNotifier('disconnect', (selected) => {
+            t.manual.channel.selectedIndex = 0;
+            t.device.disconnect();
+            t.select.setDisconnected();
+          });
+
+          t.select.addNotifier('add', (selected) => {
+            this.app.player.assignDevices();
+          });
+
+          new V2AppMenu(card, (menu) => {
+            menu.addElement('span', (e) => {
+              e.textContent = 'Channel';
+            });
+
+            menu.addElement('select', (select) => {
+              t.manual.channel = select;
+              select.disabled = true;
+
+              V2App.addElement(select, 'option', (e) => {
+                e.value = -1;
+                e.text = '–';
+              });
+
+              for (let i = 0; i < 16; i++) {
+                V2App.addElement(select, 'option', (e) => {
+                  e.value = i;
+                  e.text = i + 1;
+                });
+              }
+
+              select.addEventListener('change', () => {
+                t.manual.changed = true;
+                this.#updateConfig();
+              });
+            });
+          });
+
+          V2App.addElement(card, 'input', (e) => {
+            t.volume = e;
+            e.style.marginTop = '2.5rem';
+            e.type = 'range';
+            e.max = 127;
+            e.value = 100;
+            e.disabled = true;
+            e.addEventListener('input', () => {
+              this.#syncVolume(t, e.value);
+              t.device.sendControlChange(0, V2MIDI.CC.channelVolume, e.value);
+            });
           });
         });
-      });
 
-      V2Web.addElement(this.#element, 'input', (e) => {
-        t.volume = e;
-        e.style.marginTop = '2.5rem';
-        e.type = 'range';
-        e.max = 127;
-        e.value = 100;
-        e.disabled = true;
-        e.addEventListener('input', () => {
-          this.#syncVolume(t, e.value);
-          t.device.sendControlChange(0, V2MIDI.CC.channelVolume, e.value);
-        });
-      });
-
-      this.#tracks.set(i, t);
-    }
+        this.#tracks.set(i, t);
+      }
+    });
 
     V2PlayerDatabase.getInstruments(name, (instruments) => {
       for (const [i, entry] of instruments.entries()) {
@@ -257,7 +256,7 @@ class V2PlayerInstruments extends V2WebModule {
         track.manual.device = entry.device;
         track.manual.channel.value = entry.channel;
         track.manual.channel.disabled = false;
-        this.#player.assignDevices();
+        this.app.player.assignDevices();
       }
     });
 
@@ -396,7 +395,7 @@ class V2PlayerInstruments extends V2WebModule {
     const devices = this.#midi.getDevices('output');
     for (const track of this.#tracks.values()) {
       track.select.update(devices);
-      this.#player.assignDevices();
+      this.app.player.assignDevices();
     }
   }
 
@@ -408,10 +407,7 @@ class V2PlayerInstruments extends V2WebModule {
   }
 
   reset() {
-    this.detach();
-    this.silence();
-    while (this.#element.firstChild)
-      this.#element.firstChild.remove();
+    this.removeSection();
 
     for (const track of this.#tracks.values())
       track.device.disconnect();

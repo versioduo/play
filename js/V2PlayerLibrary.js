@@ -1,8 +1,6 @@
-class V2PlayerLibrary extends V2WebModule {
-  #player = null;
+class V2PlayerLibrary extends V2AppSection {
   #bannerNotify = null;
   #playButton = null;
-  #element = null;
   #list = null;
   #remove = false;
   #current = Object.seal({
@@ -10,25 +8,21 @@ class V2PlayerLibrary extends V2WebModule {
     file: null
   });
 
-  constructor(player) {
-    super('library', '--book-open-reader', 'Library', 'Play, Add, Remove Music');
-    this.attach();
+  constructor(app) {
+    super(app, 'library', '--book-open-reader', 'Library', 'Play, Add, Remove Music');
+    Object.seal(this);
+    this.addSection();
 
-    this.#player = player;
-    this.#bannerNotify = new V2WebNotify(this.canvas);
+    this.#bannerNotify = new V2AppNotify(this.canvas);
 
-    V2Web.addElement(this.canvas, 'div', (e) => {
-      this.#element = e;
-    });
-
-    new V2WebMenu(this.#element, (menu) => {
+    new V2AppMenu(this.canvas, (menu) => {
       menu.addElement('button', (e) => {
         e.textContent = 'Load';
         e.addEventListener('click', () => {
           this.#openFile();
         });
 
-        V2Web.addFileDrop(e, this.#element, ['warn'], (file) => {
+        V2App.addFileDrop(e, this.canvas, ['warn'], (file) => {
           this.#readFile(file);
           // Get called again for the next file in the list.
           return true;
@@ -47,7 +41,7 @@ class V2PlayerLibrary extends V2WebModule {
         e.textContent = 'Stop';
         e.classList.add('enabled');
         e.addEventListener('click', () => {
-          this.#player.stop();
+          this.app.player.stop();
         });
       });
 
@@ -57,16 +51,14 @@ class V2PlayerLibrary extends V2WebModule {
         e.textContent = 'Play';
         e.classList.add('enabled');
         e.addEventListener('click', () => {
-          this.#player.play();
+          this.app.player.play();
         });
       });
     });
 
-    V2Web.addElement(this.#element, 'div', (e) => {
+    V2App.addElement(this.canvas, 'div', (e) => {
       this.#list = e;
     });
-
-    return Object.seal(this);
   }
 
   getNotify() {
@@ -76,12 +68,12 @@ class V2PlayerLibrary extends V2WebModule {
   #readFile(file) {
     const reader = new FileReader();
     reader.onload = (e) => {
-      this.#player.reset();
+      this.app.player.reset();
 
-      if (!this.#player.show(file.name, reader.result))
+      if (!this.app.player.show(file.name, reader.result))
         return;
 
-      const title = this.#player.getTitle() || file.name.substr(0, file.name.lastIndexOf('.'));
+      const title = this.app.player.getTitle() || file.name.substr(0, file.name.lastIndexOf('.'));
       V2PlayerDatabase.addFile(file.name, title, reader.result, () => {
         this.#current.file = file.name;
         this.show();
@@ -114,11 +106,11 @@ class V2PlayerLibrary extends V2WebModule {
         return response.arrayBuffer();
       })
       .then((buffer) => {
-        if (!this.#player.show(url, buffer))
+        if (!this.app.player.show(url, buffer))
           return;
 
         const fileName = url.substr(url.lastIndexOf('/') + 1);
-        const name = this.#player.getTitle() || fileName.substr(0, fileName.lastIndexOf('.'));
+        const name = this.app.player.getTitle() || fileName.substr(0, fileName.lastIndexOf('.'));
         V2PlayerDatabase.addFile(fileName, name, buffer, () => {
           this.#current.file = fileName;
           this.show();
@@ -137,8 +129,7 @@ class V2PlayerLibrary extends V2WebModule {
 
   show() {
     V2PlayerDatabase.getFiles((files) => {
-      while (this.#list.firstChild)
-        this.#list.firstChild.remove();
+      this.#list.replaceChildren();
 
       for (const file of files) {
         const highlight = (e) => {
@@ -149,7 +140,7 @@ class V2PlayerLibrary extends V2WebModule {
           e.classList.add('highlight');
         };
 
-        new V2WebMenu(this.#list, (menu) => {
+        new V2AppMenu(this.#list, (menu) => {
           menu.element.classList.add('full');
 
           menu.addElement('button', (e) => {
@@ -162,10 +153,10 @@ class V2PlayerLibrary extends V2WebModule {
 
             e.addEventListener('click', () => {
               highlight(e);
-              this.#player.reset();
+              this.app.player.reset();
               this.#current.file = file.name;
-              this.#player.show(file.name, file.buffer);
-              this.#player.play();
+              this.app.player.show(file.name, file.buffer);
+              this.app.player.play();
             });
           });
 
@@ -178,7 +169,7 @@ class V2PlayerLibrary extends V2WebModule {
                 V2PlayerDatabase.deleteFile(file.name, () => {
                   // Remove currently loaded file.
                   if (this.#current.file === file.name)
-                    this.#player.reset();
+                    this.app.player.reset();
 
                   this.show();
                 });

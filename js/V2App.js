@@ -3,14 +3,37 @@ function isNull(value) {
   return value == null;
 }
 
-// The main menu/navigation.
-class V2Web {
-  static setup() {
+class V2App {
+  #sections = [];
+
+  constructor(handler) {
     // Always scroll to the top at page reload.
     history.scrollRestoration = 'manual';
+
+    if (handler)
+      handler(this);
   }
 
-  static registerServiceWorker(worker, handler) {
+  addSection(section, args, handler) {
+    const s = new section(this, ...(args || []));
+
+    if (handler)
+      handler(s);
+
+    this.#sections.push(s);
+    return s;
+  }
+
+  callSections(action, ...args) {
+    for (const s of this.#sections) {
+      if (typeof s[action] !== 'function')
+        continue;
+
+      s[action](...args);
+    }
+  }
+
+  registerServiceWorker(worker, handler) {
     if (!('serviceWorker' in navigator))
       return;
 
@@ -29,19 +52,19 @@ class V2Web {
     });
   }
 
-  static notifyUpdate(text, handler) {
-    V2Web.addElementAdjacent(document.querySelector('main'), 'afterbegin', 'section', (section) => {
-      V2Web.addElement(section, 'hgroup', (hg) => {
-        V2Web.addElement(hg, 'h2', (e) => {
+  notifyUpdate(text, handler) {
+    V2App.addElementAdjacent(document.querySelector('main'), 'afterbegin', 'section', (section) => {
+      V2App.addElement(section, 'hgroup', (hg) => {
+        V2App.addElement(hg, 'h2', (e) => {
           e.textContent = 'Update';
         });
 
-        V2Web.addElement(hg, 'p', (e) => {
+        V2App.addElement(hg, 'p', (e) => {
           e.textContent = text;
         });
       });
 
-      new V2WebMenu(section, (menu) => {
+      new V2AppMenu(section, (menu) => {
         menu.addElement('button', (e) => {
           e.textContent = 'Close';
           e.addEventListener('click', () => {
@@ -58,29 +81,6 @@ class V2Web {
         });
       });
     });
-  }
-
-  static addNavigationSection(id, icon, title, target) {
-    this.addElement(document.querySelector('nav details ul'), 'li', (li) => {
-      li.id = 'nav-' + id;
-
-      this.addElement(li, 'a', (e) => {
-        e.href = target;
-
-        if (icon)
-          V2Web.addElement(e, 'i', (i) => {
-            i.classList.add('icon', icon);
-          });
-
-        e.append(title);
-      });
-    });
-  }
-
-  static removeNavigationSection(id) {
-    const e = document.querySelector('#nav-' + id);
-    if (e)
-      e.remove();
   }
 
   static addElement(element, type, handler) {
@@ -147,38 +147,140 @@ class V2Web {
 
   // Read # heading marker, split newline character into paragraphs.
   static addMarkup(element, text) {
-    for (const line of text.split("\n")) {
+    for (const line of text.split('\n')) {
       const match = line.match(/^#+/);
       if (match) {
-        V2Web.addElement(element, 'p', (e) => {
+        V2App.addElement(element, 'p', (e) => {
           e.classList.add('title');
           e.textContent = line.slice(match[0].length).trim();
         });
 
       } else
-        V2Web.addElement(element, 'p', (e) => {
+        V2App.addElement(element, 'p', (e) => {
           e.textContent = line;
         });
     }
   }
 }
 
-// Inline element to show a notification with a close button.
-class V2WebNotify {
+class V2AppSection {
+  app = null;
+  id = null;
+  canvas = null;
+
+  header = Object.seal({
+    element: null,
+    icon: null,
+    title: null,
+    subtitle: null
+  });
+
+  constructor(app, id, icon, title, subtitle) {
+    if (!app)
+      throw Error('V2AppSection: Missing app.');
+
+    if (!id)
+      throw Error('V2AppSection: Missing section identifier.');
+
+    this.app = app;
+    this.id = id;
+    this.title(icon, title, subtitle);
+    this.canvas = document.createElement('section');
+    this.canvas.id = this.id;
+  }
+
+  title(icon, title, subtitle) {
+    this.header.icon = icon || null;
+    this.header.title = title || null;
+    this.header.subtitle = subtitle || null;
+
+    if (!this.header.element)
+      return;
+
+    this.header.element.replaceChildren();
+
+    if (title) {
+      V2App.addElement(this.header.element, 'h2', (e) => {
+        if (icon)
+          V2App.addElement(e, 'i', (i) => {
+            i.classList.add('icon', icon);
+          });
+
+        e.append(title);
+      });
+    }
+
+    if (subtitle) {
+      V2App.addElement(this.header.element, 'p', (e) => {
+        e.textContent = subtitle;
+      });
+    }
+  }
+
+  addSection() {
+    if (this.canvas.parentNode)
+      throw Error('V2AppSection: The section #' + this.id + ' is already added.');
+
+    V2App.addElement(this.canvas, 'hgroup', (e) => {
+      this.header.element = e;
+    });
+
+    if (this.header.title) {
+      this.title(this.header.icon, this.header.title, this.header.subtitle);
+      this.#addNavigation(this.id, this.header.icon, this.header.title);
+    }
+
+    document.querySelector('main').appendChild(this.canvas);
+  }
+
+  removeSection() {
+    this.#removeNavigation(this.id);
+    this.canvas.replaceChildren();
+    this.canvas.remove();
+  }
+
+  #addNavigation(id, icon, title) {
+    if (!title)
+      return;
+
+    V2App.addElement(document.querySelector('nav details ul'), 'li', (li) => {
+      li.id = 'nav-' + id;
+
+      V2App.addElement(li, 'a', (e) => {
+        e.href = '#' + id;
+
+        if (icon)
+          V2App.addElement(e, 'i', (i) => {
+            i.classList.add('icon', icon);
+          });
+
+        e.append(title);
+      });
+    });
+  }
+
+  #removeNavigation(id) {
+    const e = document.querySelector('#nav-' + id);
+    if (e)
+      e.remove();
+  }
+}
+
+class V2AppNotify {
   #element = null;
   #elementText = null;
 
   constructor(canvas) {
-    V2Web.addElement(canvas, 'div', (notify) => {
-      this.#element = notify;
+    Object.seal(this);
+
+    V2App.addElement(canvas, 'div', (e) => {
+      this.#element = e;
       this.#element.style.display = 'none';
       this.#element.classList.add('notify');
     });
-
-    return Object.seal(this);
   }
 
-  clear(text) {
+  clear() {
     this.#element.style.display = 'none';
     this.#element.classList.remove('--info', '--warn', '--error');
     this.#element.innerHTML = '';
@@ -206,23 +308,25 @@ class V2WebNotify {
   }
 }
 
-// A row of buttons and input elements.
-class V2WebMenu {
+class V2AppMenu {
   element = null;
 
   constructor(element, handler) {
-    V2Web.addElement(element, 'menu', (e) => {
+    if (!element)
+      throw Error('V2AppMenu: Invalid parent element.');
+
+    V2App.addElement(element, 'menu', (e) => {
       this.element = e;
 
       if (handler)
         handler(this);
     });
 
-    return Object.seal(this);
+    Object.seal(this);
   }
 
   addItem(handler) {
-    V2Web.addElement(this.element, 'li', (li) => {
+    V2App.addElement(this.element, 'li', (li) => {
       if (handler)
         handler(li);
     });
@@ -230,7 +334,7 @@ class V2WebMenu {
 
   addElement(element, handler) {
     this.addItem((li) => {
-      V2Web.addElement(li, element, (e) => {
+      V2App.addElement(li, element, (e) => {
         if (handler)
           handler(e);
       });
@@ -242,7 +346,7 @@ class V2WebMenu {
   }
 }
 
-class V2WebTabs {
+class V2AppTabs {
   current = null;
   element = null;
 
@@ -251,10 +355,10 @@ class V2WebTabs {
   #notifiers = [];
 
   constructor(element, handler) {
-    V2Web.addElement(element, 'div', (tabs) => {
+    V2App.addElement(element, 'ul', (tabs) => {
       this.element = tabs;
 
-      new V2WebMenu(tabs, (menu) => {
+      new V2AppMenu(tabs, (menu) => {
         menu.element.classList.add('bar');
         this.#elementsTabs = menu;
       });
@@ -263,14 +367,14 @@ class V2WebTabs {
     if (handler)
       handler(this);
 
-    return Object.seal(this);
+    Object.seal(this);
   }
 
   addNotifier(handler) {
     this.#notifiers.push(handler);
   }
 
-  addTab(name, icon, text, handler) {
+  add(name, icon, text, handler) {
     this.#tabs[name] = {};
 
     this.#elementsTabs.addElement('button', (e) => {
@@ -279,17 +383,17 @@ class V2WebTabs {
         if (!this.current)
           return;
 
-        this.switchTab(name);
+        this.switch(name);
       });
 
-      V2Web.addElement(e, 'i', (i) => {
+      V2App.addElement(e, 'i', (i) => {
         i.classList.add('icon', icon);
       });
       e.append(text);
       this.#tabs[name].tab = e;
     });
 
-    V2Web.addElement(this.element, 'div', (e) => {
+    V2App.addElement(this.element, 'li', (e) => {
       if (handler)
         handler(e);
 
@@ -298,11 +402,15 @@ class V2WebTabs {
     });
   }
 
-  switchTab(name) {
+  switch(name) {
+    this.current = null;
+
     for (const id of Object.keys(this.#tabs)) {
+
       if (id === name) {
         this.#tabs[id].tab.classList.add('info');
         this.#tabs[id].canvas.style.display = '';
+        this.current = name;
 
       } else {
         this.#tabs[id].tab.classList.remove('info');
@@ -310,113 +418,10 @@ class V2WebTabs {
       }
     }
 
-    this.current = name;
+    if (!this.current)
+      throw Error("V2AppTabs::switch: unknown tab name: " + name);
 
     for (const notifier of this.#notifiers)
       notifier(name);
-  }
-
-  // Clear the tab's content.
-  resetTab(name) {
-    const canvas = this.#tabs[name].canvas;
-    while (canvas.firstChild)
-      canvas.firstChild.remove();
-  }
-
-  remove() {
-    this.element.remove();
-  }
-}
-
-class V2WebModule {
-  canvas = null;
-  id = null;
-
-  #header = Object.seal({
-    element: null,
-    icon: null,
-    title: null,
-  });
-
-  constructor(id, icon, title, subtitle) {
-    if (id)
-      this.id = id;
-
-    this.canvas = document.createElement('section');
-    if (this.id)
-      this.canvas.id = id;
-
-    V2Web.addElement(this.canvas, 'hgroup', (e) => {
-      this.#header.element = e;
-    });
-
-    if (title) {
-      this.title(icon, title, subtitle);
-    }
-  }
-
-  title(icon, title, subtitle) {
-    this.#header.icon = icon || null;
-    this.#header.title = title || null;
-
-    while (this.#header.element.firstChild)
-      this.#header.element.firstChild.remove();
-
-    if (!title)
-      return;
-
-    V2Web.addElement(this.#header.element, 'h2', (e) => {
-      if (icon)
-        V2Web.addElement(e, 'i', (i) => {
-          i.classList.add('icon', icon);
-        });
-
-      e.append(title);
-    });
-
-    if (subtitle) {
-      V2Web.addElement(this.#header.element, 'p', (e) => {
-        e.textContent = subtitle;
-      });
-    }
-  }
-
-  attach() {
-    if (this.canvas.parentNode)
-      return;
-
-    if (this.id && this.#header.title)
-      V2Web.addNavigationSection(this.id, this.#header.icon, this.#header.title, '#' + this.id);
-
-    document.querySelector('main').appendChild(this.canvas);
-  }
-
-  detach() {
-    if (!this.canvas.parentNode)
-      return;
-
-    if (this.id && this.#header.title)
-      V2Web.removeNavigationSection(this.id);
-
-    this.canvas.remove();
-  }
-
-  show() {
-    if (this.id)
-      V2Web.addNavigationSection(this.id, this.#header.icon, this.#header.title, '#' + this.id);
-
-    this.canvas.style.display = '';
-  }
-
-  hide() {
-    if (this.id)
-      V2Web.removeNavigationSection(this.id);
-
-    this.canvas.style.display = 'none';
-  }
-
-  reset() {
-    while (this.canvas.firstChild)
-      this.canvas.firstChild.remove();
   }
 }

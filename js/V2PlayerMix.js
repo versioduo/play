@@ -1,6 +1,4 @@
-class V2PlayerMix extends V2WebModule {
-  #element = null;
-  #player = null;
+class V2PlayerMix extends V2AppSection {
   #midi = null;
   #buttons = Object.seal({
     reset: null,
@@ -21,21 +19,14 @@ class V2PlayerMix extends V2WebModule {
   #manual = false;
   #config = null;
 
-  constructor(player, midi) {
-    super('mix', '--sliders', 'Mix', 'Forward MIDI Messages Between Devices');
-    this.#player = player;
+  constructor(app, midi) {
+    super(app, 'mix', '--sliders', 'Mix', 'Forward MIDI Messages Between Devices');
+    Object.seal(this);
     this.#midi = midi;
-
-    V2Web.addElement(this.canvas, 'div', (e) => {
-      this.#element = e;
-      e.id = this.id + '.element';
-    });
 
     this.#midi.addNotifier('state', (event) => {
       this.#update();
     });
-
-    return Object.seal(this);
   }
 
   #assignDevices() {
@@ -115,7 +106,9 @@ class V2PlayerMix extends V2WebModule {
   }
 
   show() {
-    new V2WebMenu(this.#element, (menu) => {
+    this.addSection();
+
+    new V2AppMenu(this.canvas, (menu) => {
       menu.addElement('button', (e) => {
         this.#buttons.reset = e;
         e.textContent = 'Reset';
@@ -171,139 +164,150 @@ class V2PlayerMix extends V2WebModule {
       });
     });
 
-    V2Web.addElement(this.#element, 'p', (e) => {
-      e.classList.add('title');
-      e.textContent = 'Input';
-    });
+    V2App.addElement(this.canvas, 'ul', (cards) => {
+      cards.classList.add('cards', '--grid');
 
-    V2Web.addElement(this.#element, 'p', (e) => {
-      this.#input.name = e;
-      this.#input.name.style.visibility = 'hidden';
-    });
+      V2App.addElement(cards, 'li', (card) => {
+        V2App.addElement(card, 'hgroup', (hg) => {
+          V2App.addElement(hg, 'h3', (e) => {
+            e.textContent = 'Input';
+          });
+        });
 
-    new V2WebMenu(this.#element, (menu) => {
-      menu.addElement('span', (e) => {
-        e.textContent = 'Device';
-      });
+        V2App.addElement(card, 'p', (e) => {
+          e.classList.add('center');
+          this.#input.name = e;
+          this.#input.name.style.visibility = 'hidden';
+        });
 
-      menu.addItem((li) => {
-        this.#input.select = new V2MIDISelect(li);
-      });
-    });
+        new V2AppMenu(card, (menu) => {
+          menu.addElement('span', (e) => {
+            e.textContent = 'Device';
+          });
 
-    this.#input.select.addNotifier('select', (device) => {
-      if (device) {
-        this.#connect(this.#input, device);
-        this.#input.device.input.onmidimessage = this.#input.device.handleMessage.bind(this.#input.device);
+          menu.addItem((li) => {
+            this.#input.select = new V2MIDISelect(li);
+          });
+        });
 
-      } else
-        this.#disconnect(this.#input);
+        this.#input.select.addNotifier('select', (device) => {
+          if (device) {
+            this.#connect(this.#input, device);
+            this.#input.device.input.onmidimessage = this.#input.device.handleMessage.bind(this.#input.device);
 
-      this.#manual = true;
-      this.#update();
-    });
+          } else
+            this.#disconnect(this.#input);
 
-    this.#input.device = new V2MIDIDevice();
-    this.#input.device.addNotifier('message', (message) => {
-      if (!this.#output.device)
-        return;
+          this.#manual = true;
+          this.#update();
+        });
 
-      const status = V2MIDI.Status.getType(message[0]);
-      switch (status) {
-        case V2MIDI.Status.noteOn:
-        case V2MIDI.Status.noteOff:
-        case V2MIDI.Status.aftertouch:
-          if (this.#transpose.value !== 0) {
-            let note = message[1] + Number(this.#transpose.value);
-            if (note < 0)
-              note = 0;
-            else if (note > 127)
-              note = 127;
+        this.#input.device = new V2MIDIDevice();
+        this.#input.device.addNotifier('message', (message) => {
+          if (!this.#output.device)
+            return;
 
-            message[1] = note;
+          const status = V2MIDI.Status.getType(message[0]);
+          switch (status) {
+            case V2MIDI.Status.noteOn:
+            case V2MIDI.Status.noteOff:
+            case V2MIDI.Status.aftertouch:
+              if (this.#transpose.value !== 0) {
+                let note = message[1] + Number(this.#transpose.value);
+                if (note < 0)
+                  note = 0;
+                else if (note > 127)
+                  note = 127;
+
+                message[1] = note;
+              }
+
+              if (this.#channel.value !== '')
+                message[0] = status | (this.#channel.value - 1);
+              break;
           }
 
-          if (this.#channel.value !== '')
-            message[0] = status | (this.#channel.value - 1);
-          break;
-      }
+          this.#output.device.sendMessage(message);
+        });
 
-      this.#output.device.sendMessage(message);
-    });
+        new V2AppMenu(card, (menu) => {
+          menu.addElement('span', (e) => {
+            e.textContent = 'Transpose';
+          });
 
-    new V2WebMenu(this.#element, (menu) => {
-      menu.addElement('span', (e) => {
-        e.textContent = 'Transpose';
-      });
+          menu.addElement('select', (select) => {
+            this.#transpose = select;
 
-      menu.addElement('select', (select) => {
-        this.#transpose = select;
+            for (const i of [48, 36, 24, 12, 0, -12, -24, -36, -48]) {
+              V2App.addElement(select, 'option', (e) => {
+                e.value = i;
+                e.text = (i > 0) ? '+' + i : i;
 
-        for (const i of [48, 36, 24, 12, 0, -12, -24, -36, -48]) {
-          V2Web.addElement(select, 'option', (e) => {
-            e.value = i;
-            e.text = (i > 0) ? '+' + i : i;
+                if (i === 0)
+                  e.selected = true;
+              });
+            }
 
-            if (i === 0)
+            select.addEventListener('change', () => {
+              this.#manual = true;
+              this.#update();
+            });
+          });
+        });
+
+        new V2AppMenu(card, (menu) => {
+          menu.addElement('span', (e) => {
+            e.textContent = 'Channel';
+          });
+
+          menu.addElement('select', (select) => {
+            this.#channel = select;
+
+            V2App.addElement(select, 'option', (e) => {
+              e.value = '';
+              e.text = '–';
               e.selected = true;
+            });
+
+            for (let i = 1; i < 17; i++) {
+              V2App.addElement(select, 'option', (e) => {
+                e.value = i;
+                e.text = i;
+              });
+            }
+
+            select.addEventListener('change', () => {
+              this.#manual = true;
+              this.#update();
+            });
           });
-        }
-
-        select.addEventListener('change', () => {
-          this.#manual = true;
-          this.#update();
         });
       });
-    });
 
-    new V2WebMenu(this.#element, (menu) => {
-      menu.addElement('span', (e) => {
-        e.textContent = 'Channel';
-      });
-
-      menu.addElement('select', (select) => {
-        this.#channel = select;
-
-        V2Web.addElement(select, 'option', (e) => {
-          e.value = '';
-          e.text = '–';
-          e.selected = true;
-        });
-
-        for (let i = 1; i < 17; i++) {
-          V2Web.addElement(select, 'option', (e) => {
-            e.value = i;
-            e.text = i;
+      V2App.addElement(cards, 'li', (card) => {
+        V2App.addElement(card, 'hgroup', (hg) => {
+          V2App.addElement(hg, 'h3', (e) => {
+            e.textContent = 'Output';
           });
-        }
+        });
 
-        select.addEventListener('change', () => {
-          this.#manual = true;
-          this.#update();
+        V2App.addElement(card, 'p', (e) => {
+          e.classList.add('center');
+          this.#output.name = e;
+          this.#output.name.style.visibility = 'hidden';
+        });
+
+        new V2AppMenu(card, (menu) => {
+          menu.addElement('span', (e) => {
+            e.textContent = 'Device';
+          });
+
+          menu.addItem((li) => {
+            this.#output.select = new V2MIDISelect(li);
+          });
         });
       });
     });
-
-    V2Web.addElement(this.#element, 'p', (e) => {
-      e.classList.add('title');
-      e.textContent = 'Output';
-    });
-
-    V2Web.addElement(this.#element, 'p', (e) => {
-      this.#output.name = e;
-      this.#output.name.style.visibility = 'hidden';
-    });
-
-    new V2WebMenu(this.#element, (menu) => {
-      menu.addElement('span', (e) => {
-        e.textContent = 'Device';
-      });
-
-      menu.addItem((li) => {
-        this.#output.select = new V2MIDISelect(li);
-      });
-    });
-
 
     this.#output.select.addNotifier('select', (device) => {
       if (device)
@@ -333,12 +337,11 @@ class V2PlayerMix extends V2WebModule {
       this.#buttons.reset.disabled = false;
       this.#update();
     });
-
-    this.#update();
-    super.attach();
   }
 
   reset() {
+    super.removeSection();
+
     this.#buttons.reset = null;
     this.#buttons.save = null;
 
@@ -358,9 +361,5 @@ class V2PlayerMix extends V2WebModule {
     this.#transpose = null;
     this.#manual = false;
     this.#config = null;
-
-    super.detach();
-    while (this.#element.firstChild)
-      this.#element.firstChild.remove();
   }
 }

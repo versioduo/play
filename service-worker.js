@@ -1,5 +1,5 @@
 const name = 'play';
-const version = 165;
+const version = 169;
 const files = [
   './',
   'css/fonts.css',
@@ -7,6 +7,7 @@ const files = [
   'icons/logo-black.svg',
   'icons/logo-maskable.svg',
   'icons/logo.svg',
+  'js/V2App.js',
   'js/V2MIDI.js',
   'js/V2MIDIFile.js',
   'js/V2MIDISelect.js',
@@ -17,7 +18,6 @@ const files = [
   'js/V2PlayerInstruments.js',
   'js/V2PlayerLibrary.js',
   'js/V2PlayerMix.js',
-  'js/V2Web.js',
   'manifest.json',
   'webfonts/AlteDIN1451Mittelschrift.woff2',
   'webfonts/fa-brands-400.woff2',

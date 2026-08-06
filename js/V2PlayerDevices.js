@@ -1,6 +1,4 @@
-class V2PlayerDevices extends V2WebModule {
-  #element = null;
-  #player = null;
+class V2PlayerDevices extends V2AppSection {
   #midi = null;
 
   #list = null;
@@ -15,15 +13,10 @@ class V2PlayerDevices extends V2WebModule {
   });
   #programs = null;
 
-  constructor(player, midi) {
-    super('devices', '--right-to-bracket', 'Devices', 'Automatically Match Instruments to Devices');
+  constructor(app, midi) {
+    super(app, 'devices', '--right-to-bracket', 'Devices', 'Automatically Match Instruments to Devices');
+    Object.seal(this);
 
-    V2Web.addElement(this.canvas, 'div', (e) => {
-      this.#element = e;
-      e.id = this.id + '.element';
-    });
-
-    this.#player = player;
     this.#midi = midi;
     this.#programs = new Map();
   }
@@ -33,22 +26,20 @@ class V2PlayerDevices extends V2WebModule {
   }
 
   #updateMatches() {
-    while (this.#list.firstChild)
-      this.#list.firstChild.remove();
+    this.#list.replaceChildren();
 
     for (const [program, devices] of this.#programs.entries()) {
-      V2Web.addElement(this.#list, 'li', (li) => {
+      V2App.addElement(this.#list, 'li', (li) => {
         li.id = this.id + '.programs.' + program;
 
-        V2Web.addElement(li, 'hr');
-
-        V2Web.addElement(li, 'p', (e) => {
-          e.classList.add('title');
-          e.textContent = V2MIDI.GM.Program.Name[program];
+        V2App.addElement(li, 'hgroup', (hg) => {
+          V2App.addElement(hg, 'h3', (e) => {
+            e.textContent = V2MIDI.GM.Program.Name[program];
+          });
         });
 
         for (const [index, device] of devices.entries()) {
-          new V2WebMenu(li, (menu) => {
+          new V2AppMenu(li, (menu) => {
             menu.addElement('span', (e) => {
               e.textContent = device;
             });
@@ -57,7 +48,7 @@ class V2PlayerDevices extends V2WebModule {
               e.classList.add('field');
               e.classList.add('warn');
 
-              V2Web.addElement(e, 'i', (i) => {
+              V2App.addElement(e, 'i', (i) => {
                 i.classList.add('icon', '--xmark', '--nospace');
               });
               e.addEventListener('click', () => {
@@ -75,11 +66,13 @@ class V2PlayerDevices extends V2WebModule {
       });
     }
 
-    this.#player.assignDevices(this.#programs);
+    this.app.player.assignDevices(this.#programs);
   }
 
   show() {
-    new V2WebMenu(this.#element, (menu) => {
+    super.addSection();
+
+    new V2AppMenu(this.canvas, (menu) => {
       menu.addElement('button', (e) => {
         this.#buttons.reset = e;
         e.textContent = 'Reset';
@@ -124,7 +117,7 @@ class V2PlayerDevices extends V2WebModule {
       });
     });
 
-    new V2WebMenu(this.#element, (menu) => {
+    new V2AppMenu(this.canvas, (menu) => {
       menu.addElement('span', (e) => {
         e.textContent = 'Device';
       });
@@ -159,7 +152,7 @@ class V2PlayerDevices extends V2WebModule {
         range.value = number;
       };
 
-      new V2WebMenu(this.#element, (menu) => {
+      new V2AppMenu(this.canvas, (menu) => {
         menu.element.classList.add('full');
 
         menu.addElement('span', (e) => {
@@ -183,7 +176,7 @@ class V2PlayerDevices extends V2WebModule {
         });
       });
 
-      V2Web.addElement(this.#element, 'input', (e) => {
+      V2App.addElement(this.canvas, 'input', (e) => {
         range = e;
         e.type = 'range';
         e.min = 1;
@@ -196,9 +189,10 @@ class V2PlayerDevices extends V2WebModule {
       update(V2MIDI.GM.Program.acousticGrandPiano + 1);
     }
 
-    V2Web.addElement(this.#element, 'ul', (e) => {
-      e.id = this.id + '.programs';
+    V2App.addElement(this.canvas, 'ul', (e) => {
       this.#list = e;
+      e.id = this.id + '.programs';
+      e.classList.add('cards', '--grid');
     });
 
     V2PlayerDatabase.getDevices('programs', (devices) => {
@@ -208,12 +202,9 @@ class V2PlayerDevices extends V2WebModule {
     });
 
     this.#add.select.update(this.#midi.getDevices('output'));
-    super.attach();
   }
 
   reset() {
-    super.detach();
-    while (this.#element.firstChild)
-      this.#element.firstChild.remove();
+    super.removeSection();
   }
 }

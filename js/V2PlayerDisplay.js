@@ -1,41 +1,39 @@
-class V2PlayerDisplay extends V2WebModule {
+class V2PlayerDisplay extends V2AppSection {
   #progress = null;
   #marker = null;
   #keySignature = null;
   #timeSignature = null;
   #time = null;
 
-  constructor() {
-    super();
-    super.attach();
-    super.hide();
+  constructor(app) {
+    super(app, 'display');
+    Object.seal(this);
+    super.addSection();
 
-    V2Web.addElement(this.canvas, 'progress', (e) => {
+    V2App.addElement(this.canvas, 'progress', (e) => {
       this.#progress = e;
       e.value = 0;
     });
 
-    V2Web.addElement(this.canvas, 'ul', (l) => {
+    V2App.addElement(this.canvas, 'ul', (l) => {
       l.classList.add('line');
 
-      V2Web.addElement(l, 'li', (e) => {
+      V2App.addElement(l, 'li', (e) => {
         this.#marker = e;
       });
 
-      V2Web.addElement(l, 'li', (e) => {
+      V2App.addElement(l, 'li', (e) => {
         this.#keySignature = e;
       });
 
-      V2Web.addElement(l, 'li', (e) => {
+      V2App.addElement(l, 'li', (e) => {
         this.#timeSignature = e;
       });
 
-      V2Web.addElement(l, 'li', (e) => {
+      V2App.addElement(l, 'li', (e) => {
         this.#time = e;
       });
     });
-
-    return Object.seal(this);
   }
 
   showProgress(timeSec, runtimeSec) {
@@ -59,19 +57,15 @@ class V2PlayerDisplay extends V2WebModule {
 
   show(title, creator) {
     this.title('', title, creator);
-    super.show();
   }
 
   showVersion() {
     this.#timeSignature.innerHTML = '<a href=' + document.querySelector('link[rel="source"]').href +
       ' target="software">' + document.querySelector('meta[name="name"]').content +
       '</a>, version ' + Number(document.querySelector('meta[name="version"]').content);
-
-    super.show();
   }
 
   reset() {
-    super.hide();
     this.#progress.value = 0;
     this.#marker.textContent = '';
     this.#keySignature.textContent = '';

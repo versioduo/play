@@ -9,11 +9,14 @@ class V2Player {
   #devices = null;
   #mix = null;
 
-  constructor() {
-    this.#display = new V2PlayerDisplay();
+  constructor(app) {
+    Object.seal(this);
+    app.player = this;
+
+    this.#display = app.addSection(V2PlayerDisplay);
     this.#display.showVersion();
 
-    this.#library = new V2PlayerLibrary(this);
+    this.#library = app.addSection(V2PlayerLibrary);
 
     this.#midi = new V2MIDI();
     this.#midi.setup((error) => {
@@ -48,7 +51,7 @@ class V2Player {
 
     this.#library.show();
 
-    this.#instruments = new V2PlayerInstruments(this, this.#midi, this.#midiFile);
+    this.#instruments = app.addSection(V2PlayerInstruments, [this.#midi, this.#midiFile]);
     this.#midiFile.addNotifier('event', (i, event) => {
       if (event.meta === V2MIDIFile.Meta.marker)
         this.#display.showMarker(new TextDecoder().decode(event.data));
@@ -62,13 +65,11 @@ class V2Player {
       this.#instruments.handleEvent(i, event);
     });
 
-    this.#devices = new V2PlayerDevices(this, this.#midi);
+    this.#devices = app.addSection(V2PlayerDevices, [this.#midi]);
     this.#devices.show();
 
-    this.#mix = new V2PlayerMix(this, this.#midi);
+    this.#mix = app.addSection(V2PlayerMix, [this.#midi]);
     this.#mix.show();
-
-    return Object.seal(this);
   }
 
   // Dim UI elements when no file is loaded.
