@@ -1,5 +1,5 @@
 const name = 'play';
-const version = 169;
+const version = 176;
 const files = [
   './',
   'css/fonts.css',

@@ -1,4 +1,6 @@
 class V2PlayerDisplay extends V2AppSection {
+  #title = null;
+  #creator = null;
   #progress = null;
   #marker = null;
   #keySignature = null;
@@ -9,6 +11,16 @@ class V2PlayerDisplay extends V2AppSection {
     super(app, 'display');
     Object.seal(this);
     super.addSection();
+
+    V2App.addElement(this.canvas, 'hgroup', (hg) => {
+      V2App.addElement(hg, 'h2', (e) => {
+        this.#title = e;
+      });
+
+      V2App.addElement(hg, 'p', (e) => {
+        this.#creator = e;
+      });
+    });
 
     V2App.addElement(this.canvas, 'progress', (e) => {
       this.#progress = e;
@@ -56,7 +68,8 @@ class V2PlayerDisplay extends V2AppSection {
   }
 
   show(title, creator) {
-    this.title('', title, creator);
+    this.#title.textContent = title;
+    this.#creator.textContent = creator;
   }
 
   showVersion() {

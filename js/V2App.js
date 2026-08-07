@@ -4,11 +4,41 @@ function isNull(value) {
 }
 
 class V2App {
+  nav = null;
+  url = Object.seal({
+    connect: null,
+    debug: null
+  });
   #sections = [];
 
   constructor(handler) {
-    // Always scroll to the top at page reload.
+    this.nav = document.querySelector('nav details ul');
+    if (!this.nav)
+      throw Error('V2App: Cannot find <nav>.');
+
+    const url = new URL(window.location);
+    this.url.connect = url.searchParams.get('connect');
+    if (this.url.connect) {
+      // Remove the command, it is only used for the first connection.
+      url.searchParams.delete('connect');
+      window.history.pushState({}, '', url);
+    }
+    this.url.debug = url.searchParams.get('debug');
+
     history.scrollRestoration = 'manual';
+
+    // Intercept hash navigation to switch tabs.
+    navigation.addEventListener("navigate", (e) => {
+      const target = new URL(e.destination.url).hash;
+      if (!target)
+        return;
+
+      const id = document.getElementById(target.substr(1));
+      if (!id || id.nodeName !== 'BUTTON')
+        return;
+
+      id.click();
+    });
 
     if (handler)
       handler(this);
@@ -33,7 +63,70 @@ class V2App {
     }
   }
 
-  registerServiceWorker(worker, handler) {
+  preserveScrollPosition(handler) {
+    const behaviour = document.querySelector('html').style.scrollBehavior;
+    document.querySelector('html').style.scrollBehavior = 'auto';
+    const position = window.scrollY;
+
+    handler();
+
+    window.scrollTo(0, position);
+    document.querySelector('html').style.scrollBehavior = behaviour;
+  }
+
+  serviceWorker(file) {
+    this.#registerServiceWorker(file, (state, worker) => {
+      // There is no worker during the intial setup.
+      if (!navigator.serviceWorker.controller)
+        return;
+
+      switch (state) {
+        case 'installed':
+          // A new version was installed into the cache and a new worker is waiting to take control.
+          V2App.addElementAdjacent(document.querySelector('body'), 'afterbegin', 'header', (header) => {
+            V2App.addElement(header, 'hgroup', (hg) => {
+              V2App.addElement(hg, 'h2', (e) => {
+                V2App.addElement(e, 'i', (i) => {
+                  i.classList.add('icon', '--rotate');
+                });
+                e.append('Update');
+              });
+
+              V2App.addElement(hg, 'p', (e) => {
+                e.textContent = 'A fresh version is available';
+              });
+            });
+
+            new V2AppMenu(header, (menu) => {
+              menu.addElement('button', (e) => {
+                e.textContent = 'Close';
+                e.addEventListener('click', () => {
+                  header.remove();
+                });
+              });
+
+              menu.addElement('button', (e) => {
+                e.classList.add('primary');
+                e.textContent = 'Reload';
+                e.addEventListener('click', () => {
+                  worker.postMessage({
+                    type: 'skipWaiting'
+                  });
+                });
+              });
+            });
+          });
+          break;
+
+        case 'activated':
+          // A new worker took control over the page.
+          location.reload();
+          break;
+      }
+    });
+  }
+
+  #registerServiceWorker(worker, handler) {
     if (!('serviceWorker' in navigator))
       return;
 
@@ -49,37 +142,6 @@ class V2App {
             });
           });
         }, () => { });
-    });
-  }
-
-  notifyUpdate(text, handler) {
-    V2App.addElementAdjacent(document.querySelector('main'), 'afterbegin', 'section', (section) => {
-      V2App.addElement(section, 'hgroup', (hg) => {
-        V2App.addElement(hg, 'h2', (e) => {
-          e.textContent = 'Update';
-        });
-
-        V2App.addElement(hg, 'p', (e) => {
-          e.textContent = text;
-        });
-      });
-
-      new V2AppMenu(section, (menu) => {
-        menu.addElement('button', (e) => {
-          e.textContent = 'Close';
-          e.addEventListener('click', () => {
-            section.remove();
-          });
-        });
-
-        menu.addElement('button', (e) => {
-          e.classList.add('primary');
-          e.textContent = 'Reload';
-          e.addEventListener('click', () => {
-            handler();
-          });
-        });
-      });
     });
   }
 
@@ -166,17 +228,20 @@ class V2App {
 class V2AppSection {
   app = null;
   id = null;
+  nav = Object.seal({
+    entry: null,
+    entries: null
+  });
   canvas = null;
 
   header = Object.seal({
-    element: null,
     icon: null,
     title: null,
     subtitle: null
   });
 
   constructor(app, id, icon, title, subtitle) {
-    if (!app)
+    if (!app || typeof app !== 'object')
       throw Error('V2AppSection: Missing app.');
 
     if (!id)
@@ -184,127 +249,109 @@ class V2AppSection {
 
     this.app = app;
     this.id = id;
-    this.title(icon, title, subtitle);
-    this.canvas = document.createElement('section');
-    this.canvas.id = this.id;
-  }
-
-  title(icon, title, subtitle) {
     this.header.icon = icon || null;
     this.header.title = title || null;
     this.header.subtitle = subtitle || null;
-
-    if (!this.header.element)
-      return;
-
-    this.header.element.replaceChildren();
-
-    if (title) {
-      V2App.addElement(this.header.element, 'h2', (e) => {
-        if (icon)
-          V2App.addElement(e, 'i', (i) => {
-            i.classList.add('icon', icon);
-          });
-
-        e.append(title);
-      });
-    }
-
-    if (subtitle) {
-      V2App.addElement(this.header.element, 'p', (e) => {
-        e.textContent = subtitle;
-      });
-    }
+    this.canvas = document.createElement('section');
+    this.canvas.id = this.id;
   }
 
   addSection() {
     if (this.canvas.parentNode)
       throw Error('V2AppSection: The section #' + this.id + ' is already added.');
 
-    V2App.addElement(this.canvas, 'hgroup', (e) => {
-      this.header.element = e;
-    });
-
     if (this.header.title) {
-      this.title(this.header.icon, this.header.title, this.header.subtitle);
-      this.#addNavigation(this.id, this.header.icon, this.header.title);
+      V2App.addElement(this.canvas, 'hgroup', (hg) => {
+        V2App.addElement(hg, 'h2', (e) => {
+          V2App.addElement(e, 'i', (i) => {
+            i.classList.add('icon', this.header.icon);
+          });
+
+          e.append(this.header.title);
+        });
+
+        if (this.header.subtitle) {
+          V2App.addElement(hg, 'p', (e) => {
+            e.textContent = this.header.subtitle;
+          });
+        }
+      });
+
+      V2App.addElement(this.app.nav, 'li', (li) => {
+        this.nav.entry = li;
+
+        V2App.addElement(li, 'a', (e) => {
+          e.href = '#' + this.id;
+
+          if (this.header.icon)
+            V2App.addElement(e, 'i', (i) => {
+              i.classList.add('icon', this.header.icon);
+            });
+
+          e.append(this.header.title);
+        });
+
+        V2App.addElement(li, 'ul', (e) => {
+          this.nav.entries = e;
+        });
+      });
     }
 
     document.querySelector('main').appendChild(this.canvas);
   }
 
   removeSection() {
-    this.#removeNavigation(this.id);
+    this.nav.entry?.remove();
     this.canvas.replaceChildren();
     this.canvas.remove();
   }
 
-  #addNavigation(id, icon, title) {
-    if (!title)
-      return;
-
-    V2App.addElement(document.querySelector('nav details ul'), 'li', (li) => {
-      li.id = 'nav-' + id;
-
-      V2App.addElement(li, 'a', (e) => {
-        e.href = '#' + id;
-
-        if (icon)
-          V2App.addElement(e, 'i', (i) => {
-            i.classList.add('icon', icon);
-          });
-
-        e.append(title);
-      });
+  addNavigation(title, id) {
+    V2App.addElement(this.nav.entries, 'a', (e) => {
+      e.href = '#' + id;
+      e.append(title);
     });
-  }
-
-  #removeNavigation(id) {
-    const e = document.querySelector('#nav-' + id);
-    if (e)
-      e.remove();
   }
 }
 
 class V2AppNotify {
-  #element = null;
-  #elementText = null;
+  element = null;
 
   constructor(canvas) {
     Object.seal(this);
 
     V2App.addElement(canvas, 'div', (e) => {
-      this.#element = e;
-      this.#element.style.display = 'none';
-      this.#element.classList.add('notify');
+      this.element = e;
+      this.element.classList.add('notify');
     });
   }
 
   clear() {
-    this.#element.style.display = 'none';
-    this.#element.classList.remove('--info', '--warn', '--error');
-    this.#element.innerHTML = '';
+    this.element.replaceChildren();
   }
 
   info(text) {
-    this.clear();
-    this.#element.classList.add('--info');
-    this.#element.style.display = '';
-    this.#element.innerHTML = text;
+    this.element.replaceChildren();
+    V2App.addElement(this.element, 'p', (e) => {
+      e.classList.add('--info');
+      e.append(text);
+    });
   }
 
   warn(text) {
-    this.clear();
-    this.#element.classList.add('--warn');
-    this.#element.style.display = '';
-    this.#element.innerHTML = text;
+    this.element.replaceChildren();
+    V2App.addElement(this.element, 'p', (e) => {
+      e.classList.add('--warn');
+      e.append(text);
+    });
   }
 
   error(text) {
-    this.clear();
-    this.#element.classList.add('--error');
-    this.#element.style.display = '';
-    this.#element.innerHTML = text;
+    this.element.replaceChildren();
+    V2App.addElement(this.element, 'p', (e) => {
+      e.classList.add('--error');
+      e.append(text);
+    });
   }
 }
 
@@ -347,21 +394,22 @@ class V2AppMenu {
 }
 
 class V2AppTabs {
-  current = null;
   element = null;
+  menu = null;
+  tabs = {};
+  current = null;
 
-  #elementsTabs = null;
-  #tabs = {};
   #notifiers = [];
 
-  constructor(element, handler) {
+  constructor(element, id, handler) {
+    new V2AppMenu(element, (menu) => {
+      menu.element.classList.add('bar');
+      this.menu = menu;
+      this.menu.element.id = id + '.tabs';
+    });
+
     V2App.addElement(element, 'ul', (tabs) => {
       this.element = tabs;
-
-      new V2AppMenu(tabs, (menu) => {
-        menu.element.classList.add('bar');
-        this.#elementsTabs = menu;
-      });
     });
 
     if (handler)
@@ -375,9 +423,17 @@ class V2AppTabs {
   }
 
   add(name, icon, text, handler) {
-    this.#tabs[name] = {};
+    this.tabs[name] = Object.seal({
+      text: text,
+      id: this.menu.element.id + '.' + name,
+      tab: null,
+      canvas: null
+    });
 
-    this.#elementsTabs.addElement('button', (e) => {
+    this.menu.addElement('button', (e) => {
+      this.tabs[name].tab = e;
+      e.id = this.tabs[name].id;
+
       e.addEventListener('click', () => {
         // Do not switch inactive tabs.
         if (!this.current)
@@ -389,8 +445,8 @@ class V2AppTabs {
       V2App.addElement(e, 'i', (i) => {
         i.classList.add('icon', icon);
       });
+
       e.append(text);
-      this.#tabs[name].tab = e;
     });
 
     V2App.addElement(this.element, 'li', (e) => {
@@ -398,23 +454,25 @@ class V2AppTabs {
         handler(e);
 
       e.style.display = 'none';
-      this.#tabs[name].canvas = e;
+      this.tabs[name].canvas = e;
     });
   }
 
   switch(name) {
+    if (this.current === name)
+      return;
+
     this.current = null;
 
-    for (const id of Object.keys(this.#tabs)) {
-
+    for (const id of Object.keys(this.tabs)) {
       if (id === name) {
-        this.#tabs[id].tab.classList.add('info');
-        this.#tabs[id].canvas.style.display = '';
+        this.tabs[id].tab.classList.add('info');
+        this.tabs[id].canvas.style.display = '';
         this.current = name;
 
       } else {
-        this.#tabs[id].tab.classList.remove('info');
-        this.#tabs[id].canvas.style.display = 'none';
+        this.tabs[id].tab.classList.remove('info');
+        this.tabs[id].canvas.style.display = 'none';
       }
     }
 

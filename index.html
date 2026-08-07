@@ -5,8 +5,8 @@
     <meta http-equiv="Content-Type" content="text/html;charset=utf-8">
     <meta name="name" content="play">
     <meta name="description" content="MIDI Device Configuration">
-    <meta name="version" content="169">
-    <meta name="revised" content="2026-08-07">
+    <meta name="version" content="176">
+    <meta name="revised" content="2026-08-09">
     <meta name="copyright" content="Anyone can use this public domain work without having to seek authorisation, no one can ever own it.">
     <meta name="rating" content="safe for kids">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -43,35 +43,18 @@
     <script>
       'use strict';
 
-      new V2App((app) => {
-        app.player = null;
-        Object.seal(app);
+      try {
+        new V2App((app) => {
+          app.player = null;
+          Object.seal(app);
 
-        new V2Player(app);
-
-        // Cache the content for offline operation.
-        app.registerServiceWorker('service-worker.js', (state, newWorker) => {
-          // There is no worker during the intial setup.
-          if (!navigator.serviceWorker.controller)
-            return;
-
-          switch (state) {
-            case 'installed':
-              // A new version was installed into the cache and a new worker is waiting to take control.
-              app.notifyUpdate('A fresh version is available', () => {
-                newWorker.postMessage({
-                  type: 'skipWaiting'
-                });
-              });
-              break;
-
-            case 'activated':
-              // A new worker took control over the page.
-              location.reload();
-              break;
-          }
+          new V2Player(app);
+          app.serviceWorker('service-worker.js');
         });
-      });
+      } catch (error) {
+        console.error(error);
+        window.alert(error);
+      }
     </script>
   </body>
 </html>
