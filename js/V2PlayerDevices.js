@@ -66,7 +66,7 @@ class V2PlayerDevices extends V2AppSection {
       });
     }
 
-    this.app.player.assignDevices(this.#programs);
+    this.app.main.assignDevices(this.#programs);
   }
 
   show() {

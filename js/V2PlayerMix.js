@@ -168,6 +168,9 @@ class V2PlayerMix extends V2AppSection {
       cards.classList.add('cards', '--grid');
 
       V2App.addElement(cards, 'li', (card) => {
+        card.id = this.id + '.input';
+        this.addNavigation('Input', card.id);
+
         V2App.addElement(card, 'hgroup', (hg) => {
           V2App.addElement(hg, 'h3', (e) => {
             e.textContent = 'Input';
@@ -285,6 +288,9 @@ class V2PlayerMix extends V2AppSection {
       });
 
       V2App.addElement(cards, 'li', (card) => {
+        card.id = this.id + '.output';
+        this.addNavigation('Output', card.id);
+
         V2App.addElement(card, 'hgroup', (hg) => {
           V2App.addElement(hg, 'h3', (e) => {
             e.textContent = 'Output';

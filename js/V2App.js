@@ -9,6 +9,7 @@ class V2App {
     connect: null,
     debug: null
   });
+  main = null;
   #sections = [];
 
   constructor(handler) {
@@ -334,7 +335,7 @@ class V2AppNotify {
     this.element.replaceChildren();
     V2App.addElement(this.element, 'p', (e) => {
       e.classList.add('--info');
-      e.append(text);
+      e.innerHTML = text;
     });
   }
 
@@ -342,7 +343,7 @@ class V2AppNotify {
     this.element.replaceChildren();
     V2App.addElement(this.element, 'p', (e) => {
       e.classList.add('--warn');
-      e.append(text);
+      e.innerHTML = text;
     });
   }
 
@@ -350,7 +351,7 @@ class V2AppNotify {
     this.element.replaceChildren();
     V2App.addElement(this.element, 'p', (e) => {
       e.classList.add('--error');
-      e.append(text);
+      e.innerHTML = text;
     });
   }
 }
@@ -373,18 +374,16 @@ class V2AppMenu {
   }
 
   addItem(handler) {
-    V2App.addElement(this.element, 'li', (li) => {
+    return V2App.addElement(this.element, 'li', (li) => {
       if (handler)
         handler(li);
     });
   }
 
   addElement(element, handler) {
-    this.addItem((li) => {
-      V2App.addElement(li, element, (e) => {
-        if (handler)
-          handler(e);
-      });
+    return V2App.addElement(this.addItem(), element, (e) => {
+      if (handler)
+        handler(e);
     });
   }
 

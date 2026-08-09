@@ -1,5 +1,5 @@
 const name = 'play';
-const version = 176;
+const version = 183;
 const files = [
   './',
   'css/fonts.css',
@@ -11,7 +11,7 @@ const files = [
   'js/V2MIDI.js',
   'js/V2MIDIFile.js',
   'js/V2MIDISelect.js',
-  'js/V2Player.js',
+  'js/V2Main.js',
   'js/V2PlayerDatabase.js',
   'js/V2PlayerDevices.js',
   'js/V2PlayerDisplay.js',

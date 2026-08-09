@@ -1,4 +1,4 @@
-class V2Player {
+class V2Main {
   #midi = null;
   #midiFile = null;
   #wakeLock = null;
@@ -11,7 +11,7 @@ class V2Player {
 
   constructor(app) {
     Object.seal(this);
-    app.player = this;
+    app.main = this;
 
     this.#display = app.addSection(V2PlayerDisplay);
     this.#display.showVersion();

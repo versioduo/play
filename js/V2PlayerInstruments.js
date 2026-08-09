@@ -65,7 +65,7 @@ class V2PlayerInstruments extends V2AppSection {
             track.manual.changed = false;
             track.device.disconnect();
             track.select.setDisconnected();
-            this.app.player.assignDevices();
+            this.app.main.assignDevices();
           }
 
           this.#updateConfig(true);
@@ -198,7 +198,7 @@ class V2PlayerInstruments extends V2AppSection {
           });
 
           t.select.addNotifier('add', (selected) => {
-            this.app.player.assignDevices();
+            this.app.main.assignDevices();
           });
 
           new V2AppMenu(card, (menu) => {
@@ -256,7 +256,7 @@ class V2PlayerInstruments extends V2AppSection {
         track.manual.device = entry.device;
         track.manual.channel.value = entry.channel;
         track.manual.channel.disabled = false;
-        this.app.player.assignDevices();
+        this.app.main.assignDevices();
       }
     });
 
@@ -395,7 +395,7 @@ class V2PlayerInstruments extends V2AppSection {
     const devices = this.#midi.getDevices('output');
     for (const track of this.#tracks.values()) {
       track.select.update(devices);
-      this.app.player.assignDevices();
+      this.app.main.assignDevices();
     }
   }
 

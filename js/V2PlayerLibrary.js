@@ -41,7 +41,7 @@ class V2PlayerLibrary extends V2AppSection {
         e.textContent = 'Stop';
         e.classList.add('enabled');
         e.addEventListener('click', () => {
-          this.app.player.stop();
+          this.app.main.stop();
         });
       });
 
@@ -51,7 +51,7 @@ class V2PlayerLibrary extends V2AppSection {
         e.textContent = 'Play';
         e.classList.add('enabled');
         e.addEventListener('click', () => {
-          this.app.player.play();
+          this.app.main.play();
         });
       });
     });
@@ -68,12 +68,12 @@ class V2PlayerLibrary extends V2AppSection {
   #readFile(file) {
     const reader = new FileReader();
     reader.onload = (e) => {
-      this.app.player.reset();
+      this.app.main.reset();
 
-      if (!this.app.player.show(file.name, reader.result))
+      if (!this.app.main.show(file.name, reader.result))
         return;
 
-      const title = this.app.player.getTitle() || file.name.substr(0, file.name.lastIndexOf('.'));
+      const title = this.app.main.getTitle() || file.name.substr(0, file.name.lastIndexOf('.'));
       V2PlayerDatabase.addFile(file.name, title, reader.result, () => {
         this.#current.file = file.name;
         this.show();
@@ -106,11 +106,11 @@ class V2PlayerLibrary extends V2AppSection {
         return response.arrayBuffer();
       })
       .then((buffer) => {
-        if (!this.app.player.show(url, buffer))
+        if (!this.app.main.show(url, buffer))
           return;
 
         const fileName = url.substr(url.lastIndexOf('/') + 1);
-        const name = this.app.player.getTitle() || fileName.substr(0, fileName.lastIndexOf('.'));
+        const name = this.app.main.getTitle() || fileName.substr(0, fileName.lastIndexOf('.'));
         V2PlayerDatabase.addFile(fileName, name, buffer, () => {
           this.#current.file = fileName;
           this.show();
@@ -153,10 +153,10 @@ class V2PlayerLibrary extends V2AppSection {
 
             e.addEventListener('click', () => {
               highlight(e);
-              this.app.player.reset();
+              this.app.main.reset();
               this.#current.file = file.name;
-              this.app.player.show(file.name, file.buffer);
-              this.app.player.play();
+              this.app.main.show(file.name, file.buffer);
+              this.app.main.play();
             });
           });
 
@@ -169,7 +169,7 @@ class V2PlayerLibrary extends V2AppSection {
                 V2PlayerDatabase.deleteFile(file.name, () => {
                   // Remove currently loaded file.
                   if (this.#current.file === file.name)
-                    this.app.player.reset();
+                    this.app.main.reset();
 
                   this.show();
                 });
